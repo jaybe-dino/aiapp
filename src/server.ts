@@ -12,7 +12,23 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 async function main() {
   seed(); // 첫 기동 시 데모 데이터 보장(멱등)
 
-  const app = Fastify({ logger: { transport: undefined, level: "info" }, bodyLimit: 256 * 1024 });
+  const app = Fastify({
+    // 로그 PII 마스킹: 토큰·서명·연락처 등 민감 헤더를 남기지 않는다(기획안 불변조건 10).
+    logger: {
+      level: "info",
+      redact: {
+        paths: [
+          'req.headers.authorization',
+          'req.headers["x-admin-token"]',
+          'req.headers["x-signature"]',
+          'req.headers["x-user-id"]',
+          'req.headers.cookie',
+        ],
+        censor: "[redacted]",
+      },
+    },
+    bodyLimit: 256 * 1024,
+  });
 
   // JSON 파서를 raw body 보존형으로 교체(공급사 postback HMAC 검증에 원문 필요).
   app.addContentTypeParser("application/json", { parseAs: "string" }, (req, body, done) => {

@@ -9,6 +9,7 @@ import { ProblemError, Problems } from "./lib/problem.js";
 import { withIdempotency } from "./lib/idempotency.js";
 import { verifyToken } from "./lib/auth.js";
 import { rateLimit } from "./lib/ratelimit.js";
+import { str, int } from "./lib/validate.js";
 import { handleTurn } from "./modules/ai/orchestrator.js";
 import {
   listShoppingOffers,
@@ -112,8 +113,7 @@ export function registerRoutes(app: FastifyInstance) {
   app.post("/v1/conversations/:id/messages", async (req: FastifyRequest<{ Params: { id: string }; Body: { text: string } }>) => {
     const userId = uid(req);
     const conversationId = req.params.id;
-    const text = (req.body?.text ?? "").toString().trim();
-    if (!text) throw new ProblemError({ status: 400, code: "BAD_REQUEST", title: "질문 내용이 비어 있습니다." });
+    const text = str(req.body?.text, "질문 내용", { min: 1, max: 2000 });
     const result = await handleTurn({ conversationId, userId, question: text });
     return result;
   });
@@ -195,8 +195,8 @@ export function registerRoutes(app: FastifyInstance) {
   app.post("/v1/payouts", async (req: FastifyRequest<{ Body: { amount: number; product_id?: string } }>) => {
     const userId = uid(req);
     const key = requireIdem(req);
-    const amount = Number(req.body?.amount);
-    const productId = req.body?.product_id ?? "coupon_3000";
+    const amount = int(req.body?.amount, "교환 금액", { min: 100, max: 1_000_000 });
+    const productId = str(req.body?.product_id ?? "coupon_3000", "상품", { max: 64 });
     const order = await requestPayout({ userId, amount, productId, idempotencyKey: key });
     return {
       payout_id: order.payout_id,
