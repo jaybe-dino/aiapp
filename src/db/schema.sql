@@ -258,3 +258,42 @@ CREATE TABLE IF NOT EXISTS audit_log (
   trace_id   TEXT,
   created_at TEXT NOT NULL
 );
+
+-- =========================================================================
+-- Admin & Governance (기획안 20장) — 운영자 계정·이중 승인
+-- =========================================================================
+CREATE TABLE IF NOT EXISTS admin_users (
+  admin_id   TEXT PRIMARY KEY,
+  email      TEXT NOT NULL UNIQUE,
+  name       TEXT NOT NULL,
+  role       TEXT NOT NULL,              -- ops | reviewer | finance | owner
+  token      TEXT NOT NULL,              -- MVP 인증 토큰(운영에선 SSO/MFA)
+  created_at TEXT NOT NULL
+);
+
+-- 금액 직접수정 금지 → 요청/승인 분리(이중 승인). requester != approver 강제.
+CREATE TABLE IF NOT EXISTS manual_adjustments (
+  case_id      TEXT PRIMARY KEY,
+  user_id      TEXT NOT NULL,
+  amount       INTEGER NOT NULL,         -- 양수
+  direction    TEXT NOT NULL,            -- credit(사용자 지급) | debit(회수)
+  reason       TEXT NOT NULL,            -- 내부 감사 사유
+  user_message TEXT,                     -- 사용자 표시 설명
+  status       TEXT NOT NULL,            -- requested | approved | rejected
+  requested_by TEXT NOT NULL,
+  approved_by  TEXT,
+  ledger_tx_id TEXT,
+  created_at   TEXT NOT NULL,
+  updated_at   TEXT NOT NULL
+);
+
+-- 대사(공급사 리포트/쿠폰 발급 vs 원장). 재실행 가능.
+CREATE TABLE IF NOT EXISTS reconciliation_runs (
+  run_id     TEXT PRIMARY KEY,
+  scope      TEXT NOT NULL,              -- supplier | coupon | ledger
+  period     TEXT NOT NULL,
+  counts     TEXT NOT NULL,              -- JSON 요약
+  amounts    TEXT NOT NULL,              -- JSON 요약
+  status     TEXT NOT NULL,              -- matched | mismatch
+  created_at TEXT NOT NULL
+);

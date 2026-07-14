@@ -23,6 +23,7 @@ export const Accounts = {
   commissionRevenue: () => "platform:commission_revenue",
   payoutReserved: () => "platform:payout_reserved",
   payoutExpense: () => "platform:payout_expense",
+  manualAdjustment: () => "platform:manual_adjustment",
   userPending: (userId: string) => `user:${userId}:pending`,
   userAvailable: (userId: string) => `user:${userId}:available`,
 };
@@ -219,6 +220,43 @@ export function bookPayoutPaid(p: { payoutId: string; amount: number }): void {
       { account: Accounts.payoutExpense(), direction: "credit", amount: p.amount },
     ],
   });
+}
+
+/**
+ * 운영자 이중승인 수동조정. credit=사용자 지급, debit=회수.
+ * 반드시 manual_adjustments 승인 흐름을 거친 뒤에만 호출된다(직접 잔액 수정 금지).
+ * 반환된 ledgerTxId 를 manual_adjustments.ledger_tx_id 에 연결한다.
+ */
+export function bookManualAdjustment(p: {
+  userId: string;
+  caseId: string;
+  amount: number;
+  direction: "credit" | "debit";
+}): string {
+  const userAcc = Accounts.userAvailable(p.userId);
+  const adj = Accounts.manualAdjustment();
+  const entries: Entry[] =
+    p.direction === "credit"
+      ? [
+          { account: adj, direction: "debit", amount: p.amount },
+          { account: userAcc, direction: "credit", amount: p.amount },
+        ]
+      : [
+          { account: userAcc, direction: "debit", amount: p.amount },
+          { account: adj, direction: "credit", amount: p.amount },
+        ];
+  if (p.direction === "debit") {
+    const bal = accountBalance(userAcc);
+    if (bal < p.amount) throw Problems.conflict("회수할 사용자 잔액이 부족합니다.", `보유 ${bal}원`);
+  }
+  const { ledgerTxId } = postTransaction({
+    eventType: "manual_adjustment",
+    referenceType: "reward",
+    referenceId: p.caseId,
+    idempotencyKey: `adjust:${p.caseId}`,
+    entries,
+  });
+  return ledgerTxId;
 }
 
 /** 쿠폰 발급 명확한 실패: reserved -> available(잔액 복구). */

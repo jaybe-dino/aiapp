@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { config } from "./config.js";
 import { registerRoutes } from "./routes.js";
+import { registerAdminRoutes } from "./admin.routes.js";
 import { seed } from "./db/seed.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -17,8 +18,15 @@ async function main() {
     root: path.join(__dirname, "web"),
     prefix: "/",
   });
+  // 운영자 콘솔 정적 파일 (/admin)
+  await app.register(fastifyStatic, {
+    root: path.join(__dirname, "web-admin"),
+    prefix: "/admin/",
+    decorateReply: false,
+  });
 
   registerRoutes(app);
+  registerAdminRoutes(app);
 
   await app.listen({ port: config.port, host: "0.0.0.0" });
   const mode = config.anthropicApiKey ? `Claude(${config.aiModelTier})` : "mock(키 없음)";

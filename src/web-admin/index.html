@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>혜택AI 운영자 콘솔</title>
+  <link rel="stylesheet" href="/admin/admin.css" />
+</head>
+<body>
+  <div id="login" class="login">
+    <div class="login-card">
+      <div class="brand">혜택<span>AI</span> 운영자 콘솔</div>
+      <p class="muted">운영자 토큰으로 로그인하세요.</p>
+      <select id="tokenPreset">
+        <option value="admin-owner-token">대표(owner) — 전체 권한</option>
+        <option value="admin-ops-token">운영(ops)</option>
+        <option value="admin-review-token">검수(reviewer)</option>
+        <option value="admin-finance-token">재무(finance)</option>
+      </select>
+      <input id="tokenInput" placeholder="또는 토큰 직접 입력" />
+      <button class="btn primary" id="loginBtn">로그인</button>
+      <div id="loginErr" class="err"></div>
+    </div>
+  </div>
+
+  <div id="app" class="app hidden">
+    <aside class="sidebar">
+      <div class="brand small">혜택<span>AI</span></div>
+      <nav id="nav"></nav>
+      <div class="who" id="who"></div>
+      <button class="btn ghost" id="logout">로그아웃</button>
+    </aside>
+    <main id="main"></main>
+  </div>
+
+  <div id="toast" class="toast"></div>
+  <script src="/admin/admin.js"></script>
+</body>
+</html>

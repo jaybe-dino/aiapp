@@ -21,6 +21,17 @@ export function seed() {
     ).run(userId, purpose, ts);
   }
 
+  // 운영자 계정(역할 분리). 토큰은 데모용 — 운영에선 SSO/MFA.
+  const admins = [
+    { id: "adm_ops", email: "ops@hyeaek.ai", name: "운영자 오퍼스", role: "ops", token: "admin-ops-token" },
+    { id: "adm_review", email: "review@hyeaek.ai", name: "검수자 리뷰", role: "reviewer", token: "admin-review-token" },
+    { id: "adm_finance", email: "finance@hyeaek.ai", name: "재무 파이낸스", role: "finance", token: "admin-finance-token" },
+    { id: "adm_owner", email: "owner@hyeaek.ai", name: "대표 오너", role: "owner", token: "admin-owner-token" },
+  ];
+  for (const a of admins) {
+    db.prepare("INSERT INTO admin_users (admin_id, email, name, role, token, created_at) VALUES (?, ?, ?, ?, ?, ?)").run(a.id, a.email, a.name, a.role, a.token, ts);
+  }
+
   // 공급사
   const suppliers = [
     { id: "sup_linkprice", name: "LinkPrice", type: "shopping_cps", reward: 1 },
