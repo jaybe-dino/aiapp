@@ -1,8 +1,13 @@
-// API 클라이언트. 기본 URL은 app.json extra.apiBaseUrl 에서 읽고,
-// 개발 중에는 실기기에서 접근 가능한 PC IP로 바꾸세요(예: http://192.168.0.10:3000).
+// API 클라이언트. 기본 URL 우선순위:
+//   1) 환경변수 EXPO_PUBLIC_API_URL (실기기 테스트 시 PC의 LAN IP로 지정, 앱 코드 수정 불필요)
+//   2) app.json 의 extra.apiBaseUrl
+//   3) http://localhost:3000 (시뮬레이터/웹 기본값)
+// 실기기 예: EXPO_PUBLIC_API_URL=http://192.168.0.10:3000 npx expo start
 import Constants from "expo-constants";
 
-const BASE: string = (Constants.expoConfig?.extra as any)?.apiBaseUrl ?? "http://localhost:3000";
+const BASE: string =
+  process.env.EXPO_PUBLIC_API_URL ||
+  ((Constants.expoConfig?.extra as any)?.apiBaseUrl ?? "http://localhost:3000");
 
 // MVP 인증: x-user-id 헤더(운영에선 토큰). 데모 사용자 고정.
 const USER_ID = "usr_demo";
