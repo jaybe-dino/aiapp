@@ -1,6 +1,15 @@
-# 혜택AI (hyeaek-ai) — MVP 스캐폴드
+# 혜택AI (hyeaek-ai)
 
-쇼핑(CPS) · 오퍼월(CPA) · **캐시워크(걷기 리워드)** · AI 광고추천을 **하나의 투명 보상 원장**으로 묶은 리워드 AI 앱의 실행 가능한 MVP.
+쇼핑(CPS) · 오퍼월(CPA) · **캐시워크(걷기 리워드)** · AI 광고추천을 **하나의 투명 보상 원장**으로 묶은 리워드 AI 앱.
+
+**구성**
+| 부분 | 위치 | 설명 |
+|---|---|---|
+| 백엔드 | `src/` | 모듈러 모놀리스 API + 불변 원장 (Node·Fastify·SQLite) |
+| 사용자 웹 | `src/web/` → `http://localhost:3000/` | 시니어 친화 웹 클라이언트(데모용) |
+| **운영자 콘솔** | `src/web-admin/` → `http://localhost:3000/admin/` | 오퍼·전환·지급·이중승인 조정·감사 |
+| **모바일 앱** | `mobile/` | **iOS · Android** (Expo/React Native, 실제 배포 대상) |
+
 
 두 기획 자료(`시스템 개발 기획안`, `UX 서비스 기획안`)를 바탕으로,
 - 자료의 3대 자산(**Answer-First 광고독립성** · **불변 복식부기 원장** · **목적별 동의**)은 그대로 구현하고
@@ -23,6 +32,31 @@ npm test             # 원장 불변조건 테스트
 npm run typecheck    # 타입 체크
 npm run reset        # DB 초기화 후 재시드
 ```
+
+## 운영자 콘솔 (`/admin`)
+
+기획안 20장(운영자 콘솔·거버넌스) 구현. `http://localhost:3000/admin/` 접속 후 토큰으로 로그인.
+
+| 운영자 | 토큰 | 권한 |
+|---|---|---|
+| 대표(owner) | `admin-owner-token` | 전체 |
+| 운영(ops) | `admin-ops-token` | 오퍼·공급사·전환 |
+| 검수(reviewer) | `admin-review-token` | 오퍼·전환 |
+| 재무(finance) | `admin-finance-token` | 지급·대사·고액조정 |
+
+기능: 대시보드(수익·보상·**공헌이익**·원장균형 KPI), 오퍼 관리(필수필드 게이트), 공급사 리워드 승인,
+전환 대사(review 큐), **이중 승인 보상조정**(요청자≠승인자, 5만원+ finance/owner), 지급 대사(UNKNOWN 해결),
+사용자·동의, 원장 뷰어, 감사 로그.
+
+## 모바일 앱 (iOS · Android) — `mobile/`
+
+Expo/React Native. **하나의 코드베이스로 두 플랫폼** 빌드. 자세한 실행·스토어 빌드는 [`mobile/README.md`](mobile/README.md).
+
+```bash
+cd mobile && npm install && npx expo start   # Expo Go(QR) 또는 i/a 시뮬레이터
+```
+
+걷기 탭은 `expo-sensors` Pedometer로 실기기 만보기를 연동합니다(시뮬레이터는 데모 버튼).
 
 ## 화면 (시니어 친화 웹 클라이언트)
 

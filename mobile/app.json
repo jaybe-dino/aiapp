@@ -1,0 +1,33 @@
+{
+  "expo": {
+    "name": "혜택AI",
+    "slug": "hyeaek-ai",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "hyeaek",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#1f6feb",
+      "resizeMode": "contain"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "kr.dinostudio.hyeaek",
+      "infoPlist": {
+        "NSMotionUsageDescription": "걷기 리워드를 위해 걸음 수를 사용합니다.",
+        "NSHealthShareUsageDescription": "걷기 리워드를 위해 걸음 수를 읽습니다."
+      }
+    },
+    "android": {
+      "package": "kr.dinostudio.hyeaek",
+      "permissions": ["ACTIVITY_RECOGNITION"],
+      "adaptiveIcon": {
+        "backgroundColor": "#1f6feb"
+      }
+    },
+    "extra": {
+      "apiBaseUrl": "http://localhost:3000"
+    }
+  }
+}

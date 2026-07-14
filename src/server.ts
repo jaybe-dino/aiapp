@@ -14,6 +14,14 @@ async function main() {
 
   const app = Fastify({ logger: { transport: undefined, level: "info" } });
 
+  // CORS: 모바일 웹 빌드/별도 오리진 어드민을 위해 허용(MVP는 permissive, 운영에선 화이트리스트).
+  app.addHook("onRequest", async (req, reply) => {
+    reply.header("Access-Control-Allow-Origin", req.headers.origin ?? "*");
+    reply.header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
+    reply.header("Access-Control-Allow-Headers", "Content-Type,Idempotency-Key,x-user-id,x-admin-token");
+    if (req.method === "OPTIONS") reply.code(204).send();
+  });
+
   await app.register(fastifyStatic, {
     root: path.join(__dirname, "web"),
     prefix: "/",
