@@ -1,15 +1,26 @@
-// 혜택AI 웹 클라이언트 — 따뜻한 친근 디자인 + 렌탈.
-const H = { "Content-Type": "application/json", "x-user-id": "usr_demo" };
+// 혜택AI 웹 클라이언트 — 따뜻한 친근 디자인 + 렌탈. 인증: 세션 토큰(Bearer).
 const won = (n) => (n ?? 0).toLocaleString("ko-KR") + "원";
 const el = (h) => { const t = document.createElement("template"); t.innerHTML = h.trim(); return t.content.firstElementChild; };
 const idem = () => (crypto.randomUUID ? crypto.randomUUID() : "k" + Date.now() + Math.random());
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
+let TOKEN = localStorage.getItem("hyeaek_token") || "";
+function headers() { return { "Content-Type": "application/json", ...(TOKEN ? { Authorization: "Bearer " + TOKEN } : {}) }; }
+
 async function api(path, opts = {}) {
-  const res = await fetch(path, { headers: H, ...opts });
+  const res = await fetch(path, { ...opts, headers: { ...headers(), ...(opts.headers || {}) } });
   const body = await res.json().catch(() => ({}));
   if (!res.ok) throw body;
   return body;
+}
+
+// 세션 보장: 저장된 토큰이 없으면 게스트 로그인. 기기ID는 로컬에 유지해 같은 계정 재사용.
+async function ensureSession() {
+  if (TOKEN) return;
+  let deviceId = localStorage.getItem("hyeaek_device");
+  if (!deviceId) { deviceId = idem(); localStorage.setItem("hyeaek_device", deviceId); }
+  const r = await api("/v1/auth/guest", { method: "POST", body: JSON.stringify({ device_id: deviceId }) });
+  TOKEN = r.token; localStorage.setItem("hyeaek_token", TOKEN);
 }
 function toast(msg) {
   let t = document.querySelector(".toast");
@@ -151,13 +162,27 @@ async function goExternal(o, answerSnapshotId) {
   const warn = o.isRental ? `이 상품은 정기결제(자동결제)와 의무약정 ${o.mandatoryMonths}개월이 있어요.\n` : "";
   if (!confirm(`제휴처(${o.advertiserName})로 이동합니다.\n${warn}· 개인정보 전달: ${o.dataSharing}\n· 비식별 클릭 ID만 전달됩니다.\n계속할까요?`)) return;
   try {
-    const r = await api(`/v1/offers/${o.offerSnapshotId}/clicks`, { method: "POST", headers: { ...H, "Idempotency-Key": idem() }, body: JSON.stringify({ answer_snapshot_id: answerSnapshotId || null }) });
-    await simulateConversion(o, r.click_id);
-  } catch (err) { toast(err.title || "이동 링크 생성 실패"); }
+    await doClickAndConvert(o, answerSnapshotId);
+  } catch (err) {
+    // 제3자 제공 동의 필요(렌탈 리드 등) → 동의 후 재시도
+    if (err.code === "CONSENT_REQUIRED") {
+      if (confirm(`${err.detail || "개인정보 제3자 제공 동의가 필요합니다."}\n\n동의하고 계속할까요?`)) {
+        await api("/v1/consents/third_party", { method: "PUT", body: JSON.stringify({ granted: true }) });
+        try { await doClickAndConvert(o, answerSnapshotId); } catch (e) { toast(e.title || "진행 실패"); }
+      }
+      return;
+    }
+    toast(err.title || "이동 링크 생성 실패");
+  }
+}
+async function doClickAndConvert(o, answerSnapshotId) {
+  const r = await api(`/v1/offers/${o.offerSnapshotId}/clicks`, { method: "POST", headers: { "Idempotency-Key": idem() }, body: JSON.stringify({ answer_snapshot_id: answerSnapshotId || null }) });
+  await simulateConversion(o, r.click_id);
 }
 async function simulateConversion(o, clickId) {
   const map = o.category === "survey" ? ["sup_offerwall", "offerwall_cpa"] : o.isRental ? ["sup_rental", "rental_cpa"] : ["sup_linkprice", "shopping_cps"];
-  await api(`/v1/suppliers/${map[0]}/postbacks`, { method: "POST", body: JSON.stringify({ external_conversion_id: "demo_" + idem(), click_id: clickId, source: map[1], gross_amount: o.totalCost || 10000 }) });
+  // 데모: 서버의 dev 시뮬레이터를 통해 전환 생성(실 postback은 공급사 HMAC 서명 필요)
+  await api(`/v1/dev/simulate-conversion`, { method: "POST", body: JSON.stringify({ supplier: map[0], source: map[1], click_id: clickId, gross_amount: o.totalCost || 10000 }) });
   toast(o.isRental ? "상담 접수됨 · 내 보상에서 확인 중 확인" : "전환 접수됨 · 내 보상에서 '확인 중'");
   refreshWallet();
 }
@@ -264,7 +289,7 @@ async function exchange(available) {
   if (amount < 100) return toast("교환 가능한 금액이 부족해요.");
   if (!confirm(`${won(amount)}을 모바일 쿠폰으로 교환할까요?`)) return;
   try {
-    const r = await api("/v1/payouts", { method: "POST", headers: { ...H, "Idempotency-Key": idem() }, body: JSON.stringify({ amount, product_id: "coupon_3000" }) });
+    const r = await api("/v1/payouts", { method: "POST", headers: { "Idempotency-Key": idem() }, body: JSON.stringify({ amount, product_id: "coupon_3000" }) });
     if (r.status === "paid") toast(`교환 완료! 쿠폰번호 ${r.coupon_code}`);
     else if (r.status === "unknown") toast("확인 중이에요. 잔액은 보호됩니다.");
     else toast("교환 실패 · 잔액이 복구됐어요.");
@@ -274,4 +299,5 @@ async function exchange(available) {
 
 function sourceLabel(s) { return ({ shopping_cps: "쇼핑 적립", offerwall_cpa: "미션 보상", cashwalk_ad: "걷기 보상", rental_cpa: "렌탈 보상" })[s] || s; }
 
-render();
+// 세션 보장 후 첫 렌더
+ensureSession().then(render).catch(() => render());

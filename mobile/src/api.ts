@@ -4,22 +4,46 @@
 //   3) http://localhost:3000 (시뮬레이터/웹 기본값)
 // 실기기 예: EXPO_PUBLIC_API_URL=http://192.168.0.10:3000 npx expo start
 import Constants from "expo-constants";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const BASE: string =
   process.env.EXPO_PUBLIC_API_URL ||
   ((Constants.expoConfig?.extra as any)?.apiBaseUrl ?? "http://localhost:3000");
 
-// MVP 인증: x-user-id 헤더(운영에선 토큰). 데모 사용자 고정.
-const USER_ID = "usr_demo";
-
 function uuid(): string {
   return "k-" + Date.now() + "-" + Math.random().toString(36).slice(2);
 }
 
+// 세션 토큰(Bearer). 앱 최초 실행 시 게스트 로그인으로 발급받아 저장.
+let TOKEN: string | null = null;
+let sessionPromise: Promise<void> | null = null;
+
+async function ensureSession(): Promise<void> {
+  if (TOKEN) return;
+  if (!sessionPromise) {
+    sessionPromise = (async () => {
+      TOKEN = await AsyncStorage.getItem("hyeaek_token");
+      if (TOKEN) return;
+      let deviceId = await AsyncStorage.getItem("hyeaek_device");
+      if (!deviceId) { deviceId = uuid(); await AsyncStorage.setItem("hyeaek_device", deviceId); }
+      const res = await fetch(BASE + "/v1/auth/guest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ device_id: deviceId }),
+      });
+      const body = await res.json();
+      TOKEN = body.token;
+      if (TOKEN) await AsyncStorage.setItem("hyeaek_token", TOKEN);
+    })();
+  }
+  await sessionPromise;
+}
+
 async function req<T>(path: string, opts: RequestInit & { idem?: boolean } = {}): Promise<T> {
+  await ensureSession();
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    "x-user-id": USER_ID,
+    ...(TOKEN ? { Authorization: "Bearer " + TOKEN } : {}),
     ...(opts.headers as Record<string, string>),
   };
   if (opts.idem) headers["Idempotency-Key"] = uuid();
@@ -75,10 +99,14 @@ export const Api = {
     });
   },
   async simulateConversion(supplier: string, source: string, clickId: string, gross: number) {
-    return req(`/v1/suppliers/${supplier}/postbacks`, {
+    // 데모: 서버 dev 시뮬레이터(실 postback은 공급사 HMAC 서명 필요)
+    return req(`/v1/dev/simulate-conversion`, {
       method: "POST",
-      body: JSON.stringify({ external_conversion_id: "demo_" + Date.now(), click_id: clickId, source, gross_amount: gross }),
+      body: JSON.stringify({ supplier, source, click_id: clickId, gross_amount: gross }),
     });
+  },
+  async setConsent(purpose: string, granted: boolean) {
+    return req(`/v1/consents/${purpose}`, { method: "PUT", body: JSON.stringify({ granted }) });
   },
   async wallet() {
     return req<{ available: number; pending: number; used: number }>("/v1/wallet");

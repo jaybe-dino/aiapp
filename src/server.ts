@@ -12,7 +12,17 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 async function main() {
   seed(); // 첫 기동 시 데모 데이터 보장(멱등)
 
-  const app = Fastify({ logger: { transport: undefined, level: "info" } });
+  const app = Fastify({ logger: { transport: undefined, level: "info" }, bodyLimit: 256 * 1024 });
+
+  // JSON 파서를 raw body 보존형으로 교체(공급사 postback HMAC 검증에 원문 필요).
+  app.addContentTypeParser("application/json", { parseAs: "string" }, (req, body, done) => {
+    (req as any).rawBody = body as string;
+    try {
+      done(null, body ? JSON.parse(body as string) : {});
+    } catch (err) {
+      done(err as Error, undefined);
+    }
+  });
 
   // CORS: 모바일 웹 빌드/별도 오리진 어드민을 위해 허용(MVP는 permissive, 운영에선 화이트리스트).
   app.addHook("onRequest", async (req, reply) => {

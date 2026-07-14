@@ -1,9 +1,14 @@
-// 사용자 API 라우트(기획안 17장). MVP 인증은 x-user-id 헤더로 대체(기본 usr_demo).
+// 사용자 API 라우트(기획안 17장).
+// 인증: Authorization: Bearer <세션토큰> 우선, dev 에선 x-user-id 폴백.
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { db } from "./db/index.js";
-import { id, now } from "./lib/id.js";
-import { ProblemError } from "./lib/problem.js";
+import { id, now, hmac } from "./lib/id.js";
+import crypto from "node:crypto";
+import { config } from "./config.js";
+import { ProblemError, Problems } from "./lib/problem.js";
 import { withIdempotency } from "./lib/idempotency.js";
+import { verifyToken } from "./lib/auth.js";
+import { rateLimit } from "./lib/ratelimit.js";
 import { handleTurn } from "./modules/ai/orchestrator.js";
 import {
   listShoppingOffers,
@@ -17,9 +22,22 @@ import { userWallet, assertLedgerBalanced } from "./modules/ledger/ledger.js";
 import { listRewards, getReward, rewardTimeline, approve, makeAvailable, reverse } from "./modules/reward/reward.js";
 import { requestPayout, getPayout, listPayouts } from "./modules/payout/payout.js";
 import { syncSteps, claimMilestone, todayStatus } from "./modules/cashwalk/cashwalk.js";
+import { guestLogin, phoneStart, phoneVerify, getUser, listConsents, setConsent, hasConsent } from "./modules/auth/auth.js";
 
+/** 인증된 사용자 ID를 해석한다. 없으면 401. */
 function uid(req: FastifyRequest): string {
-  return (req.headers["x-user-id"] as string) || "usr_demo";
+  const auth = req.headers["authorization"];
+  if (auth && auth.startsWith("Bearer ")) {
+    const v = verifyToken(auth.slice(7));
+    if (v) return v.uid;
+    throw new ProblemError({ status: 401, code: "UNAUTHORIZED", title: "로그인이 필요합니다.", detail: "세션이 만료되었거나 올바르지 않습니다." });
+  }
+  // dev 폴백: x-user-id (운영에선 비활성)
+  if (config.allowHeaderAuth) {
+    const h = req.headers["x-user-id"] as string | undefined;
+    if (h) return h;
+  }
+  throw new ProblemError({ status: 401, code: "UNAUTHORIZED", title: "로그인이 필요합니다." });
 }
 function reqId(): string {
   return id("req");
@@ -39,7 +57,49 @@ export function registerRoutes(app: FastifyInstance) {
     return reply.status(500).send({ type: "about:blank", title: "서버 오류", status: 500, code: "INTERNAL", request_id: rid });
   });
 
+  // 보안 헤더 + 쓰기 API 레이트리밋
+  app.addHook("onRequest", async (req, reply) => {
+    reply.header("X-Content-Type-Options", "nosniff");
+    reply.header("Referrer-Policy", "no-referrer");
+    reply.header("X-Frame-Options", "DENY");
+    const method = req.method.toUpperCase();
+    if (["POST", "PUT", "PATCH", "DELETE"].includes(method) && req.url.startsWith("/v1/")) {
+      const who = (req.headers["authorization"] as string) || (req.headers["x-user-id"] as string) || req.ip;
+      const rl = rateLimit(`w:${req.ip}:${who}`);
+      if (!rl.ok) {
+        reply.header("Retry-After", String(rl.retryAfterSec));
+        return reply.status(429).send({ type: "about:blank", code: "RATE_LIMITED", title: "요청이 너무 많습니다. 잠시 후 다시 시도하세요.", status: 429, request_id: reqId() });
+      }
+    }
+  });
+
   app.get("/health", async () => ({ ok: true, ts: now() }));
+
+  // --- 인증 -----------------------------------------------------------
+  app.post("/v1/auth/guest", async (req: FastifyRequest<{ Body: { device_id?: string } }>) => {
+    const r = guestLogin(req.body?.device_id);
+    return { user_id: r.userId, token: r.token, display_name: r.displayName, token_type: "Bearer" };
+  });
+  app.post("/v1/auth/phone/start", async (req: FastifyRequest<{ Body: { phone: string } }>) => {
+    const r = phoneStart(String(req.body?.phone ?? ""));
+    // 운영에선 devCode 를 응답에 넣지 않는다(SMS 발송). dev 에서만 노출.
+    return { challenge_id: r.challengeId, ...(config.enableDevEndpoints ? { dev_code: r.devCode } : {}) };
+  });
+  app.post("/v1/auth/phone/verify", async (req: FastifyRequest<{ Body: { challenge_id: string; code: string } }>) => {
+    const r = phoneVerify(String(req.body?.challenge_id ?? ""), String(req.body?.code ?? ""));
+    return { user_id: r.userId, token: r.token, token_type: "Bearer" };
+  });
+  app.get("/v1/me", async (req) => {
+    const u = getUser(uid(req));
+    if (!u) throw Problems.notFound("사용자");
+    return { user_id: u.user_id, display_name: u.display_name, age_band: u.age_band, font_scale: u.font_scale, tts_enabled: !!u.tts_enabled };
+  });
+
+  // --- 동의 -----------------------------------------------------------
+  app.get("/v1/consents", async (req) => ({ consents: listConsents(uid(req)) }));
+  app.put("/v1/consents/:purpose", async (req: FastifyRequest<{ Params: { purpose: string }; Body: { granted: boolean } }>) => {
+    return setConsent(uid(req), req.params.purpose, !!req.body?.granted);
+  });
 
   // --- 대화/답변 (Answer-First) ---------------------------------------
   app.post("/v1/conversations", async (req) => {
@@ -73,10 +133,22 @@ export function registerRoutes(app: FastifyInstance) {
     return card;
   });
 
-  // 외부 이동용 서명 클릭 생성
+  // 외부 이동용 서명 클릭 생성. 렌탈(리드형)은 제3자 제공 동의가 있어야 진행 가능.
   app.post("/v1/offers/:snapshotId/clicks", async (req: FastifyRequest<{ Params: { snapshotId: string }; Body: { answer_snapshot_id?: string } }>) => {
     const userId = uid(req);
     const key = requireIdem(req);
+    const snap = getOfferSnapshot(req.params.snapshotId);
+    if (!snap) throw new ProblemError({ status: 404, code: "NOT_FOUND", title: "혜택을 찾을 수 없습니다." });
+    // 연락처·주소를 제휴사에 전달하는 오퍼(렌탈 리드 등)는 third_party 동의 필수(개인정보 목적 제한).
+    if (snap.dataSharing !== "없음" && !hasConsent(userId, "third_party")) {
+      throw new ProblemError({
+        status: 403,
+        code: "CONSENT_REQUIRED",
+        title: "개인정보 제3자 제공 동의가 필요합니다.",
+        detail: `${snap.advertiserName}에 ${snap.dataSharing}이(가) 전달됩니다. 동의 후 진행할 수 있어요.`,
+        nextAction: { label: "동의하고 계속", href: "/v1/consents/third_party" },
+      });
+    }
     return withIdempotency("click", key, req.body, () => {
       const res = createClick({ userId, offerSnapshotId: req.params.snapshotId, answerSnapshotId: req.body?.answer_snapshot_id ?? null });
       if (!res) throw new ProblemError({ status: 404, code: "NOT_FOUND", title: "혜택을 찾을 수 없습니다." });
@@ -164,9 +236,19 @@ export function registerRoutes(app: FastifyInstance) {
   });
 
   // --- 공급사 postback(전환 수신) ------------------------------------
-  // 운영에선 mTLS/HMAC/IP allowlist. MVP는 공용 어댑터로 단순화(중복은 200).
+  // 보안: 공급사별 시크릿으로 raw body HMAC 서명 검증(X-Signature). 실패 시 401.
   app.post("/v1/suppliers/:supplier/postbacks", async (req: FastifyRequest<{ Params: { supplier: string }; Body: any }>) => {
     const supplierId = req.params.supplier;
+    const sup = db.prepare("SELECT hmac_secret FROM suppliers WHERE supplier_id = ?").get(supplierId) as { hmac_secret: string | null } | undefined;
+    if (!sup) throw new ProblemError({ status: 404, code: "NOT_FOUND", title: "알 수 없는 공급사입니다." });
+    const secret = sup.hmac_secret;
+    const rawBody = (req as any).rawBody as string | undefined;
+    const provided = (req.headers["x-signature"] as string | undefined) ?? "";
+    if (!secret) throw new ProblemError({ status: 401, code: "SUPPLIER_UNVERIFIED", title: "공급사 서명 설정이 없습니다." });
+    const expected = hmac(secret, rawBody ?? JSON.stringify(req.body ?? {}));
+    const ok = provided.length === expected.length && crypto.timingSafeEqual(Buffer.from(provided), Buffer.from(expected));
+    if (!ok) throw new ProblemError({ status: 401, code: "BAD_SIGNATURE", title: "서명 검증에 실패했습니다." });
+
     const b: Record<string, any> = req.body ?? {};
     const res = ingestConversion({
       supplierId,
@@ -177,6 +259,23 @@ export function registerRoutes(app: FastifyInstance) {
       rawPayload: b,
     });
     return { received: true, conversion_id: res.conversionId, status: res.status, duplicate: res.duplicate };
+  });
+
+  // --- dev 전용: 전환 시뮬레이터(클라이언트 데모용) ------------------
+  // 인증된 사용자의 클릭에 대해 서버가 내부적으로 전환을 생성한다(운영에선 비활성).
+  app.post("/v1/dev/simulate-conversion", async (req: FastifyRequest<{ Body: { supplier: string; source: string; click_id?: string; gross_amount?: number } }>) => {
+    if (!config.enableDevEndpoints) throw new ProblemError({ status: 404, code: "NOT_FOUND", title: "사용할 수 없습니다." });
+    uid(req); // 인증 필요
+    const b = req.body ?? ({} as any);
+    const res = ingestConversion({
+      supplierId: String(b.supplier ?? "sup_linkprice"),
+      externalConversionId: "demo_" + id("ext"),
+      clickId: b.click_id ?? null,
+      source: String(b.source ?? "shopping_cps"),
+      grossAmount: Number(b.gross_amount ?? 10000),
+      rawPayload: b,
+    });
+    return { conversion_id: res.conversionId, status: res.status };
   });
 
   // --- 운영/데모 보조 API --------------------------------------------

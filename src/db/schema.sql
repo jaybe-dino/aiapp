@@ -28,6 +28,28 @@ CREATE TABLE IF NOT EXISTS consents (
   PRIMARY KEY (user_id, purpose)
 );
 
+-- 인증 식별자(로그인 방식). method: guest|phone|kakao|apple
+CREATE TABLE IF NOT EXISTS auth_identities (
+  identity_id TEXT PRIMARY KEY,
+  user_id     TEXT NOT NULL,
+  method      TEXT NOT NULL,
+  identifier  TEXT NOT NULL,          -- 전화번호/소셜 sub/기기ID 등
+  verified    INTEGER NOT NULL DEFAULT 0,
+  created_at  TEXT NOT NULL,
+  UNIQUE (method, identifier)
+);
+
+-- 휴대폰 인증 챌린지(OTP). MVP는 코드 저장·검증만(실제 발송은 로그).
+CREATE TABLE IF NOT EXISTS phone_challenges (
+  challenge_id TEXT PRIMARY KEY,
+  phone        TEXT NOT NULL,
+  code_hash    TEXT NOT NULL,
+  attempts     INTEGER NOT NULL DEFAULT 0,
+  expires_at   TEXT NOT NULL,
+  consumed     INTEGER NOT NULL DEFAULT 0,
+  created_at   TEXT NOT NULL
+);
+
 -- =========================================================================
 -- Conversation (기획안 6장) — 원문과 분석 이벤트 분리, 답변 확정 시각 보존
 -- =========================================================================

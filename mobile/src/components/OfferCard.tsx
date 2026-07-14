@@ -13,6 +13,14 @@ export default function OfferCard({ offer, answerSnapshotId, onConverted }: { of
   const [busy, setBusy] = useState(false);
   const rental = offer.isRental;
 
+  async function clickAndConvert() {
+    const { click_id } = await Api.createClick(offer.offerSnapshotId, answerSnapshotId);
+    const { supplier, source } = supplierFor(offer.category);
+    await Api.simulateConversion(supplier, source, click_id, offer.totalCost || 10000);
+    Alert.alert("접수됨", rental ? "설치 상담이 접수됐어요. ‘내 보상’에서 확인 중 상태를 볼 수 있어요." : "‘내 보상’에서 확인 중 상태를 확인하세요.");
+    onConverted?.();
+  }
+
   function goExternal() {
     const warn = rental
       ? `이 상품은 정기결제(자동결제)와 의무약정 ${offer.mandatoryMonths ?? ""}개월이 있어요.\n`
@@ -27,12 +35,24 @@ export default function OfferCard({ offer, answerSnapshotId, onConverted }: { of
           onPress: async () => {
             setBusy(true);
             try {
-              const { click_id } = await Api.createClick(offer.offerSnapshotId, answerSnapshotId);
-              const { supplier, source } = supplierFor(offer.category);
-              await Api.simulateConversion(supplier, source, click_id, offer.totalCost || 10000);
-              Alert.alert("접수됨", rental ? "설치 상담이 접수됐어요. ‘내 보상’에서 확인 중 상태를 볼 수 있어요." : "‘내 보상’에서 확인 중 상태를 확인하세요.");
-              onConverted?.();
+              await clickAndConvert();
             } catch (e: any) {
+              if (e?.code === "CONSENT_REQUIRED") {
+                setBusy(false);
+                Alert.alert("개인정보 제3자 제공 동의", e?.detail ?? "동의가 필요합니다.", [
+                  { text: "취소", style: "cancel" },
+                  {
+                    text: "동의하고 계속",
+                    onPress: async () => {
+                      setBusy(true);
+                      try { await Api.setConsent("third_party", true); await clickAndConvert(); }
+                      catch (e2: any) { Alert.alert("오류", e2?.title ?? ""); }
+                      finally { setBusy(false); }
+                    },
+                  },
+                ]);
+                return;
+              }
               Alert.alert("오류", e?.title ?? "이동 링크 생성 실패");
             } finally {
               setBusy(false);
