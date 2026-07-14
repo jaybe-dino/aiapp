@@ -22,12 +22,14 @@ export default function App() {
       <NavigationContainer>
         <Tab.Navigator
           screenOptions={({ route }) => ({
-            headerStyle: { backgroundColor: T.card },
+            headerStyle: { backgroundColor: T.bg, shadowColor: "transparent", elevation: 0, borderBottomWidth: 0 },
             headerTitleStyle: { fontSize: 20, fontWeight: "800", color: T.ink },
+            headerShadowVisible: false,
+            sceneContainerStyle: { backgroundColor: T.bg },
             tabBarActiveTintColor: T.brand,
             tabBarInactiveTintColor: T.muted,
             tabBarLabelStyle: { fontSize: 12, fontWeight: "700" },
-            tabBarStyle: { height: 64, paddingBottom: 8, paddingTop: 6 },
+            tabBarStyle: { height: 66, paddingBottom: 9, paddingTop: 7, backgroundColor: T.card, borderTopColor: T.line },
             tabBarIcon: ({ color }) => (
               <Text style={{ fontSize: 22, color }}>{ICON[route.name] ?? "•"}</Text>
             ),

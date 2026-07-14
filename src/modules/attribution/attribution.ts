@@ -68,7 +68,7 @@ export function ingestConversion(n: NormalizedConversion): {
       .get(click.offer_snapshot_id) as SnapshotRow | undefined;
     rewardAmount = snap?.reward_amount ?? 0;
     commissionAmount = snap?.commission_amount ?? Math.max(0, n.grossAmount - rewardAmount);
-    title = n.source === "shopping_cps" ? "쇼핑 적립" : "미션 보상";
+    title = n.source === "shopping_cps" ? "쇼핑 적립" : n.source === "rental_cpa" ? "렌탈 보상" : "미션 보상";
   }
 
   const fraud = scoreConversion({

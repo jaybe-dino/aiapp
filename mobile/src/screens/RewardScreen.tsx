@@ -1,11 +1,11 @@
 import React, { useCallback, useState } from "react";
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, RefreshControl } from "react-native";
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert, RefreshControl } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { T, won } from "../theme";
 import { Api } from "../api";
 
 interface Reward { reward_transaction_id: string; title: string; source: string; state: string; state_label: string; amount: number; }
-const SRC: Record<string, string> = { shopping_cps: "쇼핑 적립", offerwall_cpa: "미션 보상", cashwalk_ad: "걷기 보상" };
+const SRC: Record<string, string> = { shopping_cps: "쇼핑 적립", offerwall_cpa: "미션 보상", cashwalk_ad: "걷기 보상", rental_cpa: "렌탈 보상" };
 
 export default function RewardScreen() {
   const [wallet, setWallet] = useState({ available: 0, pending: 0, used: 0 });
@@ -13,12 +13,8 @@ export default function RewardScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
-    try {
-      const [w, r] = await Promise.all([Api.wallet(), Api.rewards()]);
-      setWallet(w); setRewards(r.rewards);
-    } catch { /* noop */ }
+    try { const [w, r] = await Promise.all([Api.wallet(), Api.rewards()]); setWallet(w); setRewards(r.rewards); } catch { /* noop */ }
   }, []);
-
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   async function exchange() {
@@ -26,18 +22,15 @@ export default function RewardScreen() {
     if (amount < 100) { Alert.alert("교환 불가", "교환 가능한 금액이 부족해요."); return; }
     Alert.alert("쿠폰 교환", `${won(amount)}을 모바일 쿠폰으로 교환할까요?`, [
       { text: "취소", style: "cancel" },
-      {
-        text: "교환",
-        onPress: async () => {
-          try {
-            const r = await Api.payout(amount);
-            if (r.status === "paid") Alert.alert("교환 완료", `쿠폰번호 ${r.coupon_code}`);
-            else if (r.status === "unknown") Alert.alert("확인 중", "잔액은 보호됩니다.");
-            else Alert.alert("교환 실패", "잔액이 복구됐어요.");
-            load();
-          } catch (e: any) { Alert.alert("오류", e?.title ?? ""); }
-        },
-      },
+      { text: "교환", onPress: async () => {
+        try {
+          const r = await Api.payout(amount);
+          if (r.status === "paid") Alert.alert("교환 완료", `쿠폰번호 ${r.coupon_code}`);
+          else if (r.status === "unknown") Alert.alert("확인 중", "잔액은 보호됩니다.");
+          else Alert.alert("교환 실패", "잔액이 복구됐어요.");
+          load();
+        } catch (e: any) { Alert.alert("오류", e?.title ?? ""); }
+      } },
     ]);
   }
 
@@ -50,14 +43,14 @@ export default function RewardScreen() {
   }
 
   function pill(state: string) {
-    if (state === "available") return { bg: "#e7f6ec", c: T.available, t: "사용 가능" };
-    if (state === "reversed") return { bg: "#fdecea", c: T.reversed, t: "취소됨" };
-    if (state === "paid") return { bg: "#eef2f8", c: T.brand, t: "사용 완료" };
-    return { bg: "#fff4e5", c: T.pending, t: "확인 중" };
+    if (state === "available") return { bg: T.brandSoft, c: T.brand, t: "사용 가능" };
+    if (state === "reversed") return { bg: "#fbe9e6", c: T.reversed, t: "취소됨" };
+    if (state === "paid") return { bg: T.inset, c: T.muted, t: "사용 완료" };
+    return { bg: "#faf1e6", c: T.accent, t: "확인 중" };
   }
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: T.bg }} contentContainerStyle={{ padding: 18 }}
+    <ScrollView style={{ flex: 1, backgroundColor: T.bg }} contentContainerStyle={{ padding: 18, paddingBottom: 40 }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} />}>
       <Text style={s.h}>내 보상</Text>
 
@@ -66,7 +59,7 @@ export default function RewardScreen() {
         <Text style={s.avail}>{won(wallet.available)}</Text>
         <View style={s.row}><Pill {...pill("pending")} /><Text style={s.v}>{won(wallet.pending)}</Text></View>
         <View style={s.row}><Pill {...pill("paid")} /><Text style={s.v}>{won(wallet.used)}</Text></View>
-        <TouchableOpacity style={[s.exchange, wallet.available < 100 && { opacity: 0.5 }]} onPress={exchange} disabled={wallet.available < 100}>
+        <TouchableOpacity style={[s.exchange, wallet.available < 100 && { opacity: 0.5 }]} onPress={exchange} disabled={wallet.available < 100} activeOpacity={0.85}>
           <Text style={s.exchangeText}>쿠폰으로 교환하기</Text>
         </TouchableOpacity>
         <View style={s.disclose}><Text style={s.discloseText}>확인 중 금액은 아직 사용할 수 없어요. 광고주 확인이 끝나면 ‘사용 가능’으로 바뀝니다.</Text></View>
@@ -74,7 +67,7 @@ export default function RewardScreen() {
 
       <Text style={s.sectionH}>거래 내역</Text>
       {rewards.length === 0 ? (
-        <View style={s.card}><Text style={{ color: T.muted }}>아직 거래가 없어요. AI 도움/혜택/미션/걷기로 보상을 모아보세요.</Text></View>
+        <View style={s.card}><Text style={{ color: T.muted }}>아직 거래가 없어요. AI 도움·혜택·미션·걷기로 보상을 모아보세요.</Text></View>
       ) : (
         rewards.map((r) => {
           const p = pill(r.state);
@@ -92,23 +85,23 @@ export default function RewardScreen() {
 }
 
 function Pill({ bg, c, t }: { bg: string; c: string; t: string }) {
-  return <View style={{ backgroundColor: bg, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 }}><Text style={{ color: c, fontWeight: "800", fontSize: 13 }}>{t}</Text></View>;
+  return <View style={{ backgroundColor: bg, borderRadius: 999, paddingHorizontal: 11, paddingVertical: 5 }}><Text style={{ color: c, fontWeight: "800", fontSize: 13 }}>{t}</Text></View>;
 }
 
 const s = StyleSheet.create({
-  h: { fontSize: 24, fontWeight: "800", color: T.ink, marginBottom: 14 },
-  card: { backgroundColor: T.card, borderWidth: 1, borderColor: T.line, borderRadius: 16, padding: 18, marginBottom: 14 },
-  availLabel: { textAlign: "center", color: T.muted },
-  avail: { textAlign: "center", fontSize: 34, fontWeight: "900", color: T.available, marginTop: 4, marginBottom: 8 },
+  h: { fontSize: 26, fontWeight: "900", color: T.ink, marginBottom: 14 },
+  card: { backgroundColor: T.card, borderWidth: 1, borderColor: T.line, borderRadius: T.radiusCard, padding: 18, marginBottom: 14 },
+  availLabel: { textAlign: "center", color: T.muted, fontWeight: "700" },
+  avail: { textAlign: "center", fontSize: 38, fontWeight: "900", color: T.brand, marginTop: 4, marginBottom: 10 },
   row: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 6 },
-  title: { fontWeight: "700", color: T.ink, fontSize: 16 },
+  title: { fontWeight: "800", color: T.ink, fontSize: 16 },
   k: { color: T.muted, fontSize: 15 },
-  v: { fontWeight: "700", color: T.ink, fontSize: 15 },
-  exchange: { backgroundColor: T.brand, borderRadius: 12, paddingVertical: 15, alignItems: "center", marginTop: 12 },
+  v: { fontWeight: "800", color: T.ink, fontSize: 15 },
+  exchange: { backgroundColor: T.brand, borderRadius: T.radiusBtn, paddingVertical: 16, alignItems: "center", marginTop: 12 },
   exchangeText: { color: "#fff", fontWeight: "800", fontSize: 17 },
-  disclose: { backgroundColor: "#f7f9fc", borderRadius: 10, padding: 12, marginTop: 10 },
+  disclose: { backgroundColor: T.inset, borderRadius: 12, padding: 12, marginTop: 10 },
   discloseText: { color: T.muted, fontSize: 13, lineHeight: 19 },
-  sectionH: { fontSize: 18, fontWeight: "800", color: T.ink, marginBottom: 10 },
-  ghost: { backgroundColor: "#eef2f8", borderRadius: 12, paddingVertical: 12, alignItems: "center", marginTop: 8 },
-  ghostText: { color: T.brand, fontWeight: "700" },
+  sectionH: { fontSize: 19, fontWeight: "800", color: T.ink, marginBottom: 10 },
+  ghost: { backgroundColor: T.brandSoft, borderRadius: 12, paddingVertical: 13, alignItems: "center", marginTop: 8 },
+  ghostText: { color: T.brand, fontWeight: "800" },
 });

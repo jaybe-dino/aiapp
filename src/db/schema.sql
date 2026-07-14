@@ -79,13 +79,17 @@ CREATE TABLE IF NOT EXISTS offers (
 CREATE TABLE IF NOT EXISTS offer_versions (
   offer_snapshot_id TEXT PRIMARY KEY,
   offer_id          TEXT NOT NULL,
-  total_cost        INTEGER NOT NULL,       -- 원(minor unit 없음, KRW는 정수 원)
+  total_cost        INTEGER NOT NULL,       -- 원(minor unit 없음, KRW는 정수 원). 렌탈은 총 소유비용(월*약정)
   reward_amount     INTEGER NOT NULL,       -- 확정 시 최대 예상 보상
   commission_amount INTEGER NOT NULL,       -- 플랫폼 예상 수수료(유닛이코노믹스)
   approval_window   TEXT NOT NULL,          -- 예: "7~14일"
   cancel_terms      TEXT NOT NULL,
   auto_renewal      INTEGER NOT NULL DEFAULT 0,
   data_sharing      TEXT NOT NULL DEFAULT '없음',
+  -- 렌탈(구독형) 전용 필드. 일반 오퍼는 NULL.
+  monthly_fee       INTEGER,                -- 월 렌탈료
+  contract_months   INTEGER,                -- 약정 기간(개월)
+  mandatory_months  INTEGER,                -- 의무 사용기간(개월)
   effective_at      TEXT NOT NULL
 );
 

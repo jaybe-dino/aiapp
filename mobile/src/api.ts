@@ -37,6 +37,10 @@ export interface OfferCard {
   autoRenewal: boolean;
   dataSharing: string;
   category: string;
+  isRental: boolean;
+  monthlyFee: number | null;
+  contractMonths: number | null;
+  mandatoryMonths: number | null;
 }
 
 export const Api = {
@@ -55,7 +59,7 @@ export const Api = {
       commercial: OfferCard | null;
     }>(`/v1/conversations/${conversationId}/messages`, { method: "POST", body: JSON.stringify({ text }) });
   },
-  async offers(type: "shopping" | "mission") {
+  async offers(type: "shopping" | "mission" | "rental") {
     return req<{ offers: OfferCard[] }>(`/v1/offers?type=${type}`);
   },
   async createClick(offerSnapshotId: string, answerSnapshotId?: string | null) {

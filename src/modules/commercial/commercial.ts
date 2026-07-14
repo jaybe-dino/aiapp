@@ -28,6 +28,11 @@ export interface OfferCard {
   autoRenewal: boolean;
   dataSharing: string;
   category: string;
+  // 렌탈(구독형) 전용. 일반 오퍼는 null.
+  isRental: boolean;
+  monthlyFee: number | null;
+  contractMonths: number | null;
+  mandatoryMonths: number | null;
 }
 
 interface OfferJoinRow {
@@ -47,6 +52,9 @@ interface OfferJoinRow {
   cancel_terms: string;
   auto_renewal: number;
   data_sharing: string;
+  monthly_fee: number | null;
+  contract_months: number | null;
+  mandatory_months: number | null;
 }
 
 /** 최신 스냅샷을 가진 활성 오퍼 목록(혜택/미션 탭 및 답변 카드 후보). */
@@ -56,7 +64,8 @@ function candidateOffers(filter: { category?: string | null; types?: string[] })
       `SELECT o.offer_id, o.supplier_id, o.category, o.title, o.advertiser_name, o.price_band,
               o.reward_eligible, o.high_risk,
               v.offer_snapshot_id, v.total_cost, v.reward_amount, v.commission_amount,
-              v.approval_window, v.cancel_terms, v.auto_renewal, v.data_sharing
+              v.approval_window, v.cancel_terms, v.auto_renewal, v.data_sharing,
+              v.monthly_fee, v.contract_months, v.mandatory_months
        FROM offers o
        JOIN suppliers s ON s.supplier_id = o.supplier_id
        JOIN offer_versions v ON v.offer_id = o.offer_id
@@ -97,6 +106,10 @@ function toCard(r: OfferJoinRow, reason: string): OfferCard {
     autoRenewal: !!r.auto_renewal,
     dataSharing: r.data_sharing,
     category: r.category,
+    isRental: r.category === "rental" || r.monthly_fee != null,
+    monthlyFee: r.monthly_fee,
+    contractMonths: r.contract_months,
+    mandatoryMonths: r.mandatory_months,
   };
 }
 
@@ -107,7 +120,9 @@ function toCard(r: OfferJoinRow, reason: string): OfferCard {
  */
 export function selectOfferForAnswer(ctx: IntentContext): OfferCard | null {
   if (!ctx.commercialAllowed) return null;
-  const cands = candidateOffers({ category: ctx.category, types: ["shopping_cps", "offerwall_cpa"] });
+  // 렌탈 의도면 렌탈 공급망까지 후보에 포함
+  const types = ctx.category === "rental" ? ["rental_cpa"] : ["shopping_cps", "offerwall_cpa"];
+  const cands = candidateOffers({ category: ctx.category, types });
   if (!cands.length) return null;
 
   const ranked = cands
@@ -119,9 +134,12 @@ export function selectOfferForAnswer(ctx: IntentContext): OfferCard | null {
     .sort((a, b) => b.userNetValue - a.userNetValue);
 
   const best = ranked[0]!.r;
-  const reason = ctx.category
-    ? `현재 질문(${ctx.category})과 관련되고, 총비용 대비 예상 보상이 큰 혜택`
-    : "질문과 관련성이 확인된 혜택";
+  const reason =
+    best.category === "rental"
+      ? "질문하신 렌탈과 관련된 검수된 제휴 상품"
+      : ctx.category
+        ? `현재 질문(${ctx.category})과 관련되고, 총비용 대비 예상 보상이 큰 혜택`
+        : "질문과 관련성이 확인된 혜택";
   return toCard(best, reason);
 }
 
@@ -135,13 +153,19 @@ export function listMissionOffers(): OfferCard[] {
   return candidateOffers({ types: ["offerwall_cpa"] }).map((r) => toCard(r, "행동형 미션 보상"));
 }
 
+/** 렌탈 탭/섹션: 정수기·비데·공기청정기 등 렌탈(구독형) 오퍼 목록. */
+export function listRentalOffers(): OfferCard[] {
+  return candidateOffers({ types: ["rental_cpa"] }).map((r) => toCard(r, "검수된 렌탈 제휴 · 조건을 꼭 확인하세요"));
+}
+
 export function getOfferSnapshot(offerSnapshotId: string): OfferCard | null {
   const r = db
     .prepare(
       `SELECT o.offer_id, o.supplier_id, o.category, o.title, o.advertiser_name, o.price_band,
               o.reward_eligible, o.high_risk,
               v.offer_snapshot_id, v.total_cost, v.reward_amount, v.commission_amount,
-              v.approval_window, v.cancel_terms, v.auto_renewal, v.data_sharing
+              v.approval_window, v.cancel_terms, v.auto_renewal, v.data_sharing,
+              v.monthly_fee, v.contract_months, v.mandatory_months
        FROM offer_versions v JOIN offers o ON o.offer_id = v.offer_id
        WHERE v.offer_snapshot_id = ?`
     )

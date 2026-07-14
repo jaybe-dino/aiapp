@@ -37,6 +37,7 @@ export function seed() {
     { id: "sup_linkprice", name: "LinkPrice", type: "shopping_cps", reward: 1 },
     { id: "sup_offerwall", name: "리워드오퍼월", type: "offerwall_cpa", reward: 1 },
     { id: "sup_walk_adnet", name: "걷기광고망", type: "walk_ad", reward: 1 },
+    { id: "sup_rental", name: "렌탈제휴망", type: "rental_cpa", reward: 1 }, // 정수기/비데 등 렌탈 CPA
     { id: "sup_coupang", name: "쿠팡파트너스", type: "shopping_cps", reward: 0 }, // 리워드 트래픽 미승인 예시
   ];
   for (const s of suppliers) {
@@ -115,7 +116,68 @@ export function seed() {
       auto_renewal: 0,
       data_sharing: "연락처·소득정보",
     },
-  ];
+    // ===== 렌탈(구독형) 오퍼: 정수기/비데/공기청정기 등 =====
+    {
+      offer_id: "off_rental_water",
+      supplier_id: "sup_rental",
+      category: "rental",
+      title: "정수기 렌탈 (냉·온·정)",
+      advertiser_name: "○○웰스",
+      landing_domain: "rental.example.com",
+      price_band: "mid",
+      high_risk: 0,
+      total_cost: 466200, // 총 소유비용 = 월 25,900 × 18개월(예시 표기)
+      reward_amount: 40000, // 계약 성사 시 큰 보상
+      commission_amount: 90000,
+      approval_window: "설치 완료 후 30~45일",
+      cancel_terms: "의무사용기간 내 해지 시 위약금 발생, 보상 취소",
+      auto_renewal: 1, // 정기결제 — 자동결제 경고 필요
+      data_sharing: "이름·연락처·설치주소(설치 상담용)",
+      monthly_fee: 25900,
+      contract_months: 36,
+      mandatory_months: 18,
+    },
+    {
+      offer_id: "off_rental_bidet",
+      supplier_id: "sup_rental",
+      category: "rental",
+      title: "비데 렌탈 (온수 세정)",
+      advertiser_name: "△△매직",
+      landing_domain: "rental.example.com",
+      price_band: "low",
+      high_risk: 0,
+      total_cost: 190800,
+      reward_amount: 25000,
+      commission_amount: 55000,
+      approval_window: "설치 완료 후 30일",
+      cancel_terms: "의무사용기간 내 해지 시 위약금, 보상 취소",
+      auto_renewal: 1,
+      data_sharing: "이름·연락처·설치주소(설치 상담용)",
+      monthly_fee: 10600,
+      contract_months: 36,
+      mandatory_months: 12,
+    },
+    {
+      offer_id: "off_rental_air",
+      supplier_id: "sup_rental",
+      category: "rental",
+      title: "공기청정기 렌탈",
+      advertiser_name: "○○웰스",
+      landing_domain: "rental.example.com",
+      price_band: "mid",
+      high_risk: 0,
+      total_cost: 356400,
+      reward_amount: 33000,
+      commission_amount: 72000,
+      approval_window: "설치 완료 후 30~45일",
+      cancel_terms: "의무사용기간 내 해지 시 위약금, 보상 취소",
+      auto_renewal: 1,
+      data_sharing: "이름·연락처·설치주소(설치 상담용)",
+      monthly_fee: 16500,
+      contract_months: 36,
+      mandatory_months: 18,
+    },
+  ] as any[];
 
   for (const o of offers) {
     db.prepare(
@@ -123,8 +185,8 @@ export function seed() {
        VALUES (?, ?, ?, ?, ?, ?, 'KR', ?, 'active', 1, ?)`
     ).run(o.offer_id, o.supplier_id, o.category, o.title, o.advertiser_name, o.landing_domain, o.price_band, o.high_risk);
     db.prepare(
-      `INSERT INTO offer_versions (offer_snapshot_id, offer_id, total_cost, reward_amount, commission_amount, approval_window, cancel_terms, auto_renewal, data_sharing, effective_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO offer_versions (offer_snapshot_id, offer_id, total_cost, reward_amount, commission_amount, approval_window, cancel_terms, auto_renewal, data_sharing, monthly_fee, contract_months, mandatory_months, effective_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).run(
       id("ofs"),
       o.offer_id,
@@ -135,6 +197,9 @@ export function seed() {
       o.cancel_terms,
       o.auto_renewal,
       o.data_sharing,
+      o.monthly_fee ?? null,
+      o.contract_months ?? null,
+      o.mandatory_months ?? null,
       ts
     );
   }

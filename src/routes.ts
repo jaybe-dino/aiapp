@@ -8,6 +8,7 @@ import { handleTurn } from "./modules/ai/orchestrator.js";
 import {
   listShoppingOffers,
   listMissionOffers,
+  listRentalOffers,
   getOfferSnapshot,
   createClick,
 } from "./modules/commercial/commercial.js";
@@ -62,7 +63,8 @@ export function registerRoutes(app: FastifyInstance) {
     const type = req.query.type;
     if (type === "mission") return { offers: listMissionOffers() };
     if (type === "shopping") return { offers: listShoppingOffers() };
-    return { shopping: listShoppingOffers(), mission: listMissionOffers() };
+    if (type === "rental") return { offers: listRentalOffers() };
+    return { shopping: listShoppingOffers(), mission: listMissionOffers(), rental: listRentalOffers() };
   });
 
   app.get("/v1/offers/:snapshotId", async (req: FastifyRequest<{ Params: { snapshotId: string } }>) => {

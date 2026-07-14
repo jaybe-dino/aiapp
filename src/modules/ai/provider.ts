@@ -28,7 +28,7 @@ const SYSTEM_POLICY = `당신은 한국 55~69세 사용자를 돕는 생활비�
 {"summary": string, "sections": [{"title": string, "body": string, "importance": "high|medium|low"}],
  "next_actions": [{"label": string, "action_type": string}],
  "uncertainty": {"level": "low|medium|high", "message": string},
- "suggested_category": "travel|shopping|survey|life|null 중 하나"}`;
+ "suggested_category": "travel|shopping|rental|survey|life|null 중 하나(정수기·비데·공기청정기 렌탈/구독 문의는 rental)"}`;
 
 export async function generateAnswer(question: string, tier = config.aiModelTier): Promise<StructuredAnswer> {
   if (!config.anthropicApiKey) return mockAnswer(question);
@@ -79,7 +79,8 @@ function normalize(json: Record<string, unknown>, question: string): StructuredA
 function mockAnswer(question: string, degraded = false): StructuredAnswer {
   const q = question.toLowerCase();
   let category: string | null = "life";
-  if (/여행|부산|제주|숙박|호텔|기차|ktx|항공|비행기/.test(q)) category = "travel";
+  if (/렌탈|렌트|구독|정수기|비데|안마의자|매트리스|공기청정기\s*렌/.test(q)) category = "rental";
+  else if (/여행|부산|제주|숙박|호텔|기차|ktx|항공|비행기/.test(q)) category = "travel";
   else if (/쇼핑|구매|가격|최저가|사려|살까|사는|싸게|필터|청정기|제품|배송|주문|상품/.test(q)) category = "shopping";
   else if (/설문|미션|적립|포인트/.test(q)) category = "survey";
 
