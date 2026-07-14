@@ -1,0 +1,66 @@
+sequenceDiagram
+    autonumber
+    participant S as 제휴 공급사
+    participant P as Postback Gateway
+    participant A as Attribution & Fraud
+    participant L as Reward Ledger
+    participant Q as Event Queue / Outbox
+    participant C as Coupon Worker
+    participant V as 쿠폰 공급자
+    participant U as 사용자 앱
+    participant O as 운영·대사
+
+    S->>P: 전환 이벤트 + external_conversion_id
+    P->>P: 서명·timestamp·nonce·Schema 검증
+    P->>P: Raw payload 암호화 저장 + 멱등성 체크
+    P-->>S: 수신 성공
+    P->>Q: conversion.received
+    Q->>A: 정규화 이벤트
+    A->>A: click 귀속·중복·순서역전·사기 규칙
+
+    alt 유효 전환
+        A->>L: reward.pending(idempotency_key)
+        L->>L: 균형 분개 + 상태 이벤트 + outbox
+        L-->>U: 확인 중·예상일
+    else 불명확 또는 위험
+        A->>O: 수동 검토 사건 생성
+        A-->>U: 내부 확인 중
+    end
+
+    S->>P: 승인 또는 취소 이벤트
+    P->>Q: conversion.status_changed
+    Q->>A: 상태 정규화
+
+    alt 승인·검증 통과
+        A->>L: pending → approved → available
+        L->>L: 불변 분개·허용 전이 검사
+        L-->>U: 사용 가능 잔액
+    else 취소·반품·중복
+        A->>L: reversal 이벤트
+        L->>L: 반대 분개 생성
+        L-->>U: 취소 사유·근거 시점
+    end
+
+    U->>L: 쿠폰 교환 요청 + Idempotency-Key
+    L->>L: 가용 잔액 잠금·payout_reserved
+    L->>Q: payout.requested
+    Q->>C: 발급 작업
+    C->>V: 공급자 멱등성 키로 발급
+
+    alt 명확한 성공
+        V-->>C: coupon_id + secret
+        C->>L: payout.completed
+        L->>L: reserved → paid
+        L-->>U: 쿠폰·유효기간
+    else 명확한 실패
+        V-->>C: 실패 코드
+        C->>L: payout.failed
+        L->>L: 반대 분개로 예약 해제
+        L-->>U: 잔액 자동 복구
+    else 결과 불명확
+        V--xC: timeout / 응답 유실
+        C->>O: UNKNOWN 대사 사건
+        C-->>U: 잔액 보호·처리 중
+        O->>V: 조회 API·리포트 대사
+        O->>L: 성공 확정 또는 예약 해제
+    end

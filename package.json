@@ -1,0 +1,31 @@
+{
+  "name": "hyeaek-ai",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "혜택AI — 쇼핑·오퍼월·캐시워크(걷기)·AI광고추천을 하나의 투명 보상 원장으로 묶은 리워드 AI 앱 (MVP 스캐폴드)",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "start": "tsx src/server.ts",
+    "seed": "tsx src/db/seed.ts",
+    "reset": "rm -f data/app.db && npm run seed",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.32.1",
+    "@fastify/static": "^7.0.4",
+    "better-sqlite3": "^11.3.0",
+    "fastify": "^4.28.1"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.11",
+    "@types/node": "^22.5.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.2",
+    "vitest": "^2.1.1"
+  }
+}

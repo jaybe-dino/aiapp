@@ -1,0 +1,83 @@
+flowchart LR
+  subgraph P0[Phase 0 · 4주 · 위험·계약 확정]
+    A1[Trust Invariants]
+    A2[공급사 계약·postback]
+    A3[DPIA·Threat Model]
+    A4[Event·Ledger Spec]
+  end
+
+  subgraph P1[Phase 1 · 8주 · AI Core]
+    B1[Conversation Runtime]
+    B2[Model Gateway·RAG]
+    B3[Safety·Consent]
+    B4[Voice·Evaluation]
+  end
+
+  subgraph P2[Phase 2 · 6주 · 오퍼·클릭]
+    C1[Offer Catalog]
+    C2[Policy·Ranking]
+    C3[Click Redirect]
+    C4[Postback Adapters]
+  end
+
+  subgraph P3[Phase 3 · 8주 · 보상·지급]
+    D1[Attribution·Fraud]
+    D2[Immutable Ledger]
+    D3[Reward UX]
+    D4[Coupon Saga·Reconciliation]
+  end
+
+  subgraph P4[Phase 4 · 6주 · 제한 베타]
+    E1[55~70대 실사용 테스트]
+    E2[SLO·On-call·Runbook]
+    E3[Privacy·Accessibility]
+    E4[Launch Readiness]
+  end
+
+  subgraph P5[Phase 5 · 지속 · 확장]
+    F1[공급사·카테고리 확장]
+    F2[사기 모델·개인화]
+    F3[비용·품질 최적화]
+  end
+
+  A1 --> B1
+  A3 --> B3
+  A2 --> C1
+  A4 --> C4
+  B1 --> C2
+  B2 --> C2
+  B3 --> C2
+  C3 --> D1
+  C4 --> D1
+  A4 --> D2
+  D1 --> D2
+  D2 --> D3
+  D2 --> D4
+  D3 --> E1
+  D4 --> E2
+  B3 --> E3
+  E1 --> E4
+  E2 --> E4
+  E3 --> E4
+  E4 --> F1
+  E4 --> F2
+  E4 --> F3
+
+  G1{{Gate A\nAI 단독 가치·안전 통과}}
+  G2{{Gate B\n광고 독립성 100%}}
+  G3{{Gate C\n원장 불균형·중복 지급 0}}
+  G4{{Gate D\n운영·개인정보·접근성 준비}}
+
+  P1 --> G1
+  G1 --> P2
+  P2 --> G2
+  G2 --> P3
+  P3 --> G3
+  G3 --> P4
+  P4 --> G4
+  G4 --> P5
+
+  classDef phase fill:#EEF4FF,stroke:#2457A7,color:#112A4D,stroke-width:2px;
+  classDef gate fill:#FFF1D6,stroke:#B56800,color:#4A2B00,stroke-width:2px;
+  class A1,A2,A3,A4,B1,B2,B3,B4,C1,C2,C3,C4,D1,D2,D3,D4,E1,E2,E3,E4,F1,F2,F3 phase;
+  class G1,G2,G3,G4 gate;

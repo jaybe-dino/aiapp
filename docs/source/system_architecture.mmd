@@ -1,0 +1,85 @@
+flowchart LR
+  U[시니어 사용자\n모바일 앱·음성·웹] --> G[API Gateway / BFF\n인증·속도제한·동의 스냅샷]
+
+  subgraph AIR[AI Runtime Trust Boundary]
+    O[Conversation Orchestrator\n상태기계·실행계획]
+    S[Safety & Policy Engine\n입력·출력·고위험 판정]
+    R[RAG / Knowledge\n검수 출처·최신성]
+    M[LLM Router\n주 모델·대체 모델·예산]
+    T[Tool Registry\n권한·스키마·타임아웃]
+    C[Response Composer\n답변·출처 구조화]
+    O --> S
+    O --> R
+    O --> M
+    O --> T
+    S --> C
+    R --> C
+    M --> C
+  end
+
+  G --> O
+  C -->|답변 선확정| G
+
+  subgraph COM[Commercial Trust Boundary]
+    I[Intent Context Gateway\n제한 코드·TTL]
+    P[Ad Policy & Eligibility\n동의·금지·빈도]
+    K[Offer Catalog\n정규화·스냅샷·검수]
+    Q[Candidate Retrieval & Ranking\n효용·품질·신뢰]
+    X[Click & Redirect\n서명 click_id·딥링크]
+    I --> P
+    P --> Q
+    K --> Q
+    Q --> X
+  end
+
+  C -.->|answer.finalized_at 이후| I
+  G -->|혜택 상세·외부 이동 확인| X
+  X --> N[광고주·제휴사\n쇼핑·예약·미션]
+
+  subgraph EVT[Attribution & Money Boundary]
+    W[Postback Gateway\n서명·멱등성·원문 영속화]
+    A[Attribution & Fraud\n귀속·중복·순서역전·대사]
+    L[Reward Ledger\n불변 분개·상태기계]
+    Y[Payout / Coupon Saga\n예약·발급·보상]
+    W --> A
+    A --> L
+    L --> Y
+  end
+
+  N -->|postback·리포트| W
+  Y --> V[쿠폰·포인트 공급자]
+  G -->|내 보상·쿠폰 교환| L
+
+  subgraph DAT[Consent / Operations / Data]
+    D[Consent & Preference Vault\n목적별 동의·철회·차단]
+    B[Admin & Operations\n오퍼 승인·이중 승인·문의]
+    E[Event Bus / Outbox\n재시도·DLQ]
+    Z[Audit & Observability\nTrace·Metric·불변 감사]
+    H[Analytics Warehouse\n가명 이벤트·KPI]
+  end
+
+  G --> D
+  P --> D
+  B --> K
+  B --> A
+  B --> L
+  O --> E
+  X --> E
+  W --> E
+  L --> E
+  O --> Z
+  Q --> Z
+  A --> Z
+  L --> Z
+  E --> H
+
+  classDef user fill:#EAF4FF,stroke:#2463A7,color:#10243A,stroke-width:2px;
+  classDef ai fill:#F1ECFF,stroke:#6F4DBF,color:#241742,stroke-width:2px;
+  classDef commercial fill:#FFF4E5,stroke:#C77800,color:#4A2A00,stroke-width:2px;
+  classDef money fill:#EAF8EF,stroke:#2D7D46,color:#10361C,stroke-width:2px;
+  classDef ops fill:#F4F5F7,stroke:#59636E,color:#20252B,stroke-width:1.5px;
+  class U,G user;
+  class O,S,R,M,T,C ai;
+  class I,P,K,Q,X,N commercial;
+  class W,A,L,Y,V money;
+  class D,B,E,Z,H ops;
