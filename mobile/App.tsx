@@ -40,7 +40,7 @@ export default function App() {
             headerStyle: { backgroundColor: T.bg, shadowColor: "transparent", elevation: 0, borderBottomWidth: 0 },
             headerTitleStyle: { fontSize: 20, fontWeight: "800", color: T.ink },
             headerShadowVisible: false,
-            sceneContainerStyle: { backgroundColor: T.bg },
+            sceneStyle: { backgroundColor: T.bg },
             tabBarActiveTintColor: T.brand,
             tabBarInactiveTintColor: T.muted,
             tabBarLabelStyle: { fontSize: 12, fontWeight: "700" },
