@@ -33,6 +33,13 @@ EXPO_PUBLIC_API_URL=http://<맥IP>:3000 npx expo start
 - `npx expo start` 후 **Expo Go** 앱으로 QR 스캔(실기기) 또는 `i`(iOS 시뮬레이터)/`a`(Android 에뮬레이터).
 - 실기기에서 테스트할 땐 `app.json` 의 `extra.apiBaseUrl` 을 **PC의 LAN IP**(예: `http://192.168.0.10:3000`)로 바꾸세요. `localhost` 는 기기 자신을 가리킵니다.
 
+## ⚠️ 자주 겪는 문제
+
+- **`better-sqlite3` / node-gyp / Python SyntaxError 로 설치 실패** → 루트(`~/aiapp`, 백엔드)에서 `npm install` 을 돌린 경우입니다. **아이폰 앱 테스트는 `mobile` 폴더만** 설치하세요(네이티브 빌드 없음). `cd ~/aiapp/mobile && npm install`.
+- **`Agreeing to the Xcode license…`** → iOS 시뮬레이터에만 필요합니다. **실기기 Expo Go 사용 시 무시**하세요(Xcode 불필요).
+- **`npx expo` 가 expo@57 을 받으려 함** → `mobile` 폴더에서 `npm install` 을 먼저 끝내면 로컬 expo(SDK 51)를 사용합니다.
+- **Node 버전 경고/오류** → Expo SDK 51 은 Node 18~20 LTS 권장. Node 24 등에서 문제가 나면 `nvm install 20 && nvm use 20` 후 재시도.
+
 ## 화면 (하단 5탭)
 
 | 탭 | 내용 |
