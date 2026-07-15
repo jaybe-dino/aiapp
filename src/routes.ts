@@ -293,17 +293,29 @@ export function registerRoutes(app: FastifyInstance) {
     return { conversion_id: res.conversionId, status: res.status };
   });
 
-  // --- 운영/데모 보조 API --------------------------------------------
-  // 전환 상태 진행(공급사 승인 → 사용가능). 운영에선 attribution-worker가 이벤트로 처리.
+  // --- 데모/개발 보조 API (운영 비활성) ------------------------------
+  // [보안] 이 보조 라우트들은 인증·권한이 없어 보상 상태를 임의 조작할 수 있으므로
+  // 반드시 dev 게이트로 막는다. 운영에선 attribution-worker와 어드민 콘솔(requireAdmin,
+  // 이중승인)만이 보상 상태를 진행한다. dev 게이트는 운영(prod)에서 자동 false.
+  const devOnly = () => {
+    if (!config.enableDevEndpoints) throw new ProblemError({ status: 404, code: "NOT_FOUND", title: "사용할 수 없습니다." });
+  };
+  // 전환 상태 진행(공급사 승인 → 사용가능). 데모에서 전환을 '사용 가능'까지 진행할 때만.
   app.post("/v1/admin/rewards/:id/approve", async (req: FastifyRequest<{ Params: { id: string } }>) => {
+    devOnly();
+    uid(req); // 인증 필요
     approve(req.params.id);
     return makeAvailable(req.params.id);
   });
   app.post("/v1/admin/rewards/:id/reverse", async (req: FastifyRequest<{ Params: { id: string }; Body: { reason?: string } }>) => {
+    devOnly();
+    uid(req);
     return reverse(req.params.id, req.body?.reason ?? "공급사 취소");
   });
   // 원장 균형 자가검증(대사)
-  app.get("/v1/admin/ledger/check", async () => {
+  app.get("/v1/admin/ledger/check", async (req: FastifyRequest) => {
+    devOnly();
+    uid(req);
     assertLedgerBalanced();
     return { balanced: true };
   });

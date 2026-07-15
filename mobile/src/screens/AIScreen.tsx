@@ -4,7 +4,7 @@ import {
   KeyboardAvoidingView, Platform, LayoutAnimation, UIManager,
 } from "react-native";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
-import { T } from "../theme";
+import { T, won } from "../theme";
 import { Api, OfferCard as Offer, NeedLevel, RewardNudge } from "../api";
 import OfferCard from "../components/OfferCard";
 
@@ -12,7 +12,6 @@ if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 const ease = () => LayoutAnimation.configureNext(LayoutAnimation.create(220, "easeInEaseOut", "opacity"));
-const P = (n: number) => (n ?? 0).toLocaleString("ko-KR") + "P";
 
 type Msg =
   | { role: "user"; text: string }
@@ -91,7 +90,7 @@ export default function AIScreen() {
                 <Text style={s.hello}>안녕하세요 👋</Text>
                 <Text style={s.h}>무엇이{"\n"}궁금하세요?</Text>
               </View>
-              <View style={s.walletPill}><Text style={s.walletLabel}>내 포인트</Text><Text style={s.walletValue}>{P(available)}</Text></View>
+              <View style={s.walletPill}><Text style={s.walletLabel}>사용 가능</Text><Text style={s.walletValue}>{won(available)}</Text></View>
             </View>
             <Text style={s.lead}>궁금한 걸 편하게 물어보세요. 대화 속에서 필요할 때만{"\n"}딱 맞는 혜택과 포인트를 연결해 드려요.</Text>
 
@@ -171,8 +170,11 @@ function SoftSuggestion({ benefit, answerSnapshotId }: { benefit: Offer; answerS
       <TouchableOpacity style={s.soft} activeOpacity={0.9} onPress={() => { ease(); setOpen((v) => !v); }}>
         <Text style={s.softEmoji}>💡</Text>
         <View style={{ flex: 1 }}>
-          <Text style={s.softTitle}>관련해서 도움받을 수 있어요</Text>
-          <Text style={s.softSub}>{benefit.title} · 확정 시 최대 {P(benefit.expectedReward)}</Text>
+          <View style={s.softTitleRow}>
+            <Text style={s.softTitle}>관련해서 도움받을 수 있어요</Text>
+            <View style={s.softAdBadge}><Text style={s.softAdBadgeText}>광고·제휴</Text></View>
+          </View>
+          <Text style={s.softSub}>{benefit.title} · 확정 시 최대 {won(benefit.expectedReward)}</Text>
         </View>
         <Text style={s.softToggle}>{open ? "접기" : "보기"}</Text>
       </TouchableOpacity>
@@ -250,6 +252,9 @@ const s = StyleSheet.create({
 
   soft: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: T.brandSoft, borderRadius: 18, borderWidth: 1, borderColor: "#cfe4da", paddingVertical: 14, paddingHorizontal: 15, marginBottom: 12 },
   softEmoji: { fontSize: 20 },
+  softTitleRow: { flexDirection: "row", alignItems: "center", gap: 7 },
+  softAdBadge: { backgroundColor: T.adLabelBg, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
+  softAdBadgeText: { color: "#fff", fontWeight: "800", fontSize: 10 },
   softTitle: { fontWeight: "800", color: T.brandDark, fontSize: 15 },
   softSub: { color: T.brand, fontSize: 13.5, marginTop: 2, fontWeight: "600" },
   softToggle: { color: "#fff", backgroundColor: T.brand, overflow: "hidden", borderRadius: 12, paddingHorizontal: 13, paddingVertical: 7, fontWeight: "800", fontSize: 13.5 },

@@ -5,7 +5,7 @@ export const T = {
   card: "#ffffff",
   inset: "#f5f2ec", // 카드 내부 정보 박스
   ink: "#2e2c26", // 웜 다크(거의 검정)
-  muted: "#857f72", // 웜 그레이
+  muted: "#6b6459", // 웜 그레이(크림 배경 대비 4.5:1↑, WCAG AA)
   line: "#e7e3d8",
 
   brand: "#0E7A5F", // 딥 그린(주요 버튼·활성 탭·유저 말풍선)

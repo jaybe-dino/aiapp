@@ -1,6 +1,6 @@
 /* 혜택AI 웹 — 따뜻한 친근 팔레트(크림+딥그린+테라코타). 시니어 친화 큰 글씨·높은 대비 */
 :root {
-  --bg:#f0eee6; --card:#ffffff; --inset:#f5f2ec; --ink:#2e2c26; --muted:#857f72; --line:#e7e3d8;
+  --bg:#f0eee6; --card:#ffffff; --inset:#f5f2ec; --ink:#2e2c26; --muted:#6b6459; --line:#e7e3d8;
   --brand:#0E7A5F; --brand-dark:#0a6350; --brand-soft:#e3efe9;
   --accent:#c1743c; --accent-soft:#faf1e6; --accent-line:#eddcc0; --ad:#b0703e;
   --available:#0E7A5F; --pending:#c1743c; --reversed:#b00020;
@@ -184,3 +184,5 @@ button, .btn {
 
 /* none — 광고 미노출 안내(차분) */
 .ai-note { background:var(--inset); border-radius:13px; padding:13px; margin-top:10px; color:var(--muted); font-size:.85rem; line-height:1.5; }
+.soft-sug .soft-h { display:flex; align-items:center; gap:7px; }
+.soft-sug .soft-ad { background:var(--ad); color:#fff; font-weight:800; font-size:.62rem; padding:2px 6px; border-radius:6px; }

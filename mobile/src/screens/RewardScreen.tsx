@@ -17,9 +17,11 @@ export default function RewardScreen() {
   }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
+  // 현재 상품 카탈로그는 3,000원 쿠폰 1종. 상품과 금액을 일치시켜 교환한다(불일치 방지).
+  const COUPON_AMOUNT = 3000;
   async function exchange() {
-    const amount = Math.min(3000, Math.floor(wallet.available / 100) * 100);
-    if (amount < 100) { Alert.alert("교환 불가", "교환 가능한 금액이 부족해요."); return; }
+    if (wallet.available < COUPON_AMOUNT) { Alert.alert("교환 불가", `${won(COUPON_AMOUNT)} 쿠폰 교환에는 최소 ${won(COUPON_AMOUNT)}이 필요해요.`); return; }
+    const amount = COUPON_AMOUNT;
     Alert.alert("쿠폰 교환", `${won(amount)}을 모바일 쿠폰으로 교환할까요?`, [
       { text: "취소", style: "cancel" },
       { text: "교환", onPress: async () => {
@@ -59,8 +61,8 @@ export default function RewardScreen() {
         <Text style={s.avail}>{won(wallet.available)}</Text>
         <View style={s.row}><Pill {...pill("pending")} /><Text style={s.v}>{won(wallet.pending)}</Text></View>
         <View style={s.row}><Pill {...pill("paid")} /><Text style={s.v}>{won(wallet.used)}</Text></View>
-        <TouchableOpacity style={[s.exchange, wallet.available < 100 && { opacity: 0.5 }]} onPress={exchange} disabled={wallet.available < 100} activeOpacity={0.85}>
-          <Text style={s.exchangeText}>쿠폰으로 교환하기</Text>
+        <TouchableOpacity style={[s.exchange, wallet.available < 3000 && { opacity: 0.5 }]} onPress={exchange} disabled={wallet.available < 3000} activeOpacity={0.85}>
+          <Text style={s.exchangeText}>3,000원 쿠폰으로 교환하기</Text>
         </TouchableOpacity>
         <View style={s.disclose}><Text style={s.discloseText}>확인 중 금액은 아직 사용할 수 없어요. 광고주 확인이 끝나면 ‘사용 가능’으로 바뀝니다.</Text></View>
       </View>

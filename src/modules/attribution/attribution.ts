@@ -31,7 +31,12 @@ interface SnapshotRow {
  * 정규화된 전환 1건을 처리한다. 멱등: (supplier, external_conversion_id) 유일 제약으로
  * 재수신은 자동 무시(중복 200). 반환값은 처리 결과 요약.
  */
-export function ingestConversion(n: NormalizedConversion): {
+// origin: 전환의 진입 경로. "internal"은 서버 내부(예: 걷기 claimMilestone)에서만,
+// "postback"은 외부 공급사 서명 포스트백. cashwalk_ad 즉시지급은 internal에서만 허용한다.
+export function ingestConversion(
+  n: NormalizedConversion,
+  origin: "internal" | "postback" = "postback"
+): {
   conversionId: string;
   status: string;
   duplicate: boolean;
@@ -43,10 +48,20 @@ export function ingestConversion(n: NormalizedConversion): {
     .get(n.supplierId, n.externalConversionId) as { conversion_id: string; status: string } | undefined;
   if (dup) return { conversionId: dup.conversion_id, status: dup.status, duplicate: true };
 
+  // [보안] 걷기 광고 보상(cashwalk_ad)은 서버 내부 경로에서만 생성 가능.
+  // 외부 포스트백이 source=cashwalk_ad 로 임의 사용자/금액을 즉시지급하는 사칭을 차단.
+  const cashwalkSpoof = n.source === "cashwalk_ad" && origin !== "internal";
+
   // 귀속: click_id로 사용자/오퍼 스냅샷 확인
   let click: ClickRow | undefined;
   if (n.clickId) {
     click = db.prepare("SELECT * FROM clicks WHERE click_id = ?").get(n.clickId) as ClickRow | undefined;
+    // [보안] 귀속 검증: 만료된 클릭·타 공급사 클릭은 귀속 근거로 인정하지 않는다.
+    if (click) {
+      const expired = new Date(click.attribution_expires_at).getTime() < Date.now();
+      const supplierMismatch = click.supplier_id !== n.supplierId;
+      if (expired || supplierMismatch) click = undefined;
+    }
   }
 
   // 보상/수수료 금액 결정
@@ -79,7 +94,8 @@ export function ingestConversion(n: NormalizedConversion): {
     grossAmount: n.grossAmount,
     source: n.source,
   });
-  const decision = fraudDecision(fraud.score);
+  // 사칭 시도는 사기점수와 무관하게 귀속 거부(기록은 남겨 감사 가능).
+  const decision = cashwalkSpoof ? "rejected" : fraudDecision(fraud.score);
 
   const conversionId = id("cnv");
   db.prepare(
@@ -114,8 +130,9 @@ export function ingestConversion(n: NormalizedConversion): {
     });
     rewardTransactionId = rw.reward_transaction_id;
 
-    // 걷기 자체광고 보상은 즉시 확정(광고 CPM은 이미 수취) → 사용가능까지 진행
-    if (n.source === "cashwalk_ad") {
+    // 걷기 자체광고 보상은 즉시 확정(광고 CPM은 이미 수취) → 사용가능까지 진행.
+    // 내부 경로(claimMilestone)에서만. 외부 포스트백은 위에서 이미 rejected 처리됨.
+    if (n.source === "cashwalk_ad" && origin === "internal") {
       approve(rewardTransactionId);
       makeAvailable(rewardTransactionId);
     }

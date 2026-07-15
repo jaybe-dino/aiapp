@@ -91,14 +91,17 @@ export function claimMilestone(p: {
   const grossFromAd = REWARD_PER_MILESTONE * 2; // CPM 수취액 예시(플랫폼 마진 확보)
 
   // 자체 광고망 전환으로 원장에 연결(수익 - 보상 = 마진)
-  const conv = ingestConversion({
-    supplierId: "sup_walk_adnet",
-    externalConversionId,
-    clickId: null,
-    source: "cashwalk_ad",
-    grossAmount: grossFromAd,
-    rawPayload: { user_id: p.userId, reward_amount: reward, ad_impression_id: p.adImpressionId, milestone: p.milestone },
-  });
+  const conv = ingestConversion(
+    {
+      supplierId: "sup_walk_adnet",
+      externalConversionId,
+      clickId: null,
+      source: "cashwalk_ad",
+      grossAmount: grossFromAd,
+      rawPayload: { user_id: p.userId, reward_amount: reward, ad_impression_id: p.adImpressionId, milestone: p.milestone },
+    },
+    "internal" // 서버 내부 경로: cashwalk_ad 즉시지급 허용
+  );
 
   db.prepare(
     `INSERT INTO cashwalk_claims (claim_id, user_id, day_key, milestone, ad_impression_id, reward_amount, conversion_id, created_at)

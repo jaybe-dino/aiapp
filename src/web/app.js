@@ -67,7 +67,7 @@ async function renderAI() {
       <div id="emptyState">
         <div style="display:flex;justify-content:space-between;align-items:flex-start">
           <div><div class="hello">안녕하세요 👋</div><div class="h-big">무엇이<br>궁금하세요?</div></div>
-          <div class="wallet-box"><div class="l">내 포인트</div><div class="v">${w.available.toLocaleString("ko-KR")}P</div></div>
+          <div class="wallet-box"><div class="l">사용 가능</div><div class="v">${won(w.available)}</div></div>
         </div>
         <p class="voice-hint" style="text-align:left;margin:2px 0 16px">궁금한 걸 편하게 물어보세요. 대화 속에서 필요할 때만<br>딱 맞는 혜택과 포인트를 연결해 드려요.</p>
         <button class="talk-btn" id="voice"><span class="mic">🎤</span><span class="tx"><b>눌러서 물어보기</b><span class="sub">천천히 말하거나 글로 입력해도 돼요</span></span><span class="arw">›</span></button>
@@ -135,7 +135,7 @@ function answerBlock(r) {
         <div class="ai-badge-row"><span class="ai-badge">AI</span><span class="muted" style="font-weight:700">AI 답변</span></div>
         <div class="summary">${esc(a.summary)}</div>
         ${sections}
-        <div class="uncertain">⚠️ ${esc(a.uncertainty.message)}</div>
+        ${a.uncertainty && a.uncertainty.message ? `<div class="uncertain">⚠️ ${esc(a.uncertainty.message)}</div>` : ""}
       </div>
       <div id="ad"></div>
     </div>`);
@@ -164,7 +164,7 @@ function softSuggestion(o, answerSnapshotId) {
   const wrap = el(`<div>
     <button class="soft-sug">
       <span class="e">💡</span>
-      <span class="tx"><b>관련해서 도움받을 수 있어요</b><span class="sub">${esc(o.title)} · 확정 시 최대 ${o.expectedReward.toLocaleString("ko-KR")}P</span></span>
+      <span class="tx"><span class="soft-h"><b>관련해서 도움받을 수 있어요</b><span class="soft-ad">광고·제휴</span></span><span class="sub">${esc(o.title)} · 확정 시 최대 ${won(o.expectedReward)}</span></span>
       <span class="tg">보기</span>
     </button>
     <div class="soft-body" style="display:none"></div>
@@ -362,7 +362,7 @@ async function renderReward() {
       <div class="center"><div class="muted" style="font-weight:700">사용 가능</div><div class="big-amount" style="color:var(--brand)">${won(w.available)}</div></div>
       <div class="row mt"><span class="pill pending">확인 중</span><span class="v">${won(w.pending)}</span></div>
       <div class="row"><span class="pill paid">사용 완료</span><span class="v">${won(w.used)}</span></div>
-      <button class="btn btn-primary mt" id="exchange" ${w.available < 100 ? "disabled" : ""}>쿠폰으로 교환하기</button>
+      <button class="btn btn-primary mt" id="exchange" ${w.available < 3000 ? "disabled" : ""}>3,000원 쿠폰으로 교환하기</button>
       <div class="disclose">확인 중 금액은 아직 사용할 수 없어요. 광고주 확인이 끝나면 '사용 가능'으로 바뀝니다.</div>
     </div>`));
   const list = el(`<div><h3 class="title" style="font-size:1.2rem">거래 내역</h3></div>`);
@@ -385,8 +385,9 @@ async function showTimeline(rid) {
   alert(`${r.title}\n상태: ${r.state_label} · ${won(r.amount)}\n\n[타임라인]\n` + r.timeline.map((t) => `• ${t.reason} (${new Date(t.created_at).toLocaleString("ko-KR")})`).join("\n"));
 }
 async function exchange(available) {
-  const amount = Math.min(3000, Math.floor(available / 100) * 100);
-  if (amount < 100) return toast("교환 가능한 금액이 부족해요.");
+  // 상품 카탈로그가 3,000원 쿠폰 1종 → 상품과 금액 일치.
+  const amount = 3000;
+  if (available < amount) return toast("3,000원 쿠폰 교환에는 최소 3,000원이 필요해요.");
   if (!confirm(`${won(amount)}을 모바일 쿠폰으로 교환할까요?`)) return;
   try {
     const r = await api("/v1/payouts", { method: "POST", headers: { "Idempotency-Key": idem() }, body: JSON.stringify({ amount, product_id: "coupon_3000" }) });
