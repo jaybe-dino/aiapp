@@ -12,8 +12,8 @@ const ALLOWED: Record<RewardState, RewardState[]> = {
   pending: ["approved", "reversed"],
   approved: ["available", "reversed"],
   available: ["reserved", "reversed"],
-  reserved: ["paid", "available", "reversed"],
-  paid: ["reversed"],
+  reserved: ["paid", "available"], // 지급 취소는 payout saga(available 복구)로. 직접 reversed 금지.
+  paid: [], // 확정 지급은 되돌리지 않음(정정은 수동조정 흐름).
   reversed: [],
 };
 
@@ -95,6 +95,11 @@ export function approve(rid: string, approvedAmount?: number): RewardRow {
   const r = getReward(rid);
   if (!r) throw Problems.notFound("보상 거래");
   const amount = approvedAmount ?? r.expected_amount;
+  // [정합] 승인액은 0 이상, 예상 적립 이하만 허용. 초과 승인은 pending 음수·available 인플레이션을 유발.
+  if (amount < 0) throw Problems.badRequest("승인 금액이 올바르지 않습니다.");
+  if (amount > r.expected_amount) {
+    throw Problems.conflict("승인 금액이 예상 적립을 초과합니다.", `승인 ${amount}원 > 예상 ${r.expected_amount}원`);
+  }
   db.prepare("UPDATE reward_transactions SET approved_amount = ? WHERE reward_transaction_id = ?").run(amount, rid);
   return transition(rid, "approved", "공급사 승인, 금액 확정");
 }
@@ -103,8 +108,13 @@ export function makeAvailable(rid: string): RewardRow {
   const r = getReward(rid);
   if (!r) throw Problems.notFound("보상 거래");
   const amount = r.approved_amount ?? r.expected_amount;
+  // 승인액이 예상보다 적으면(부분 승인) 차액은 pending에서 회수해 잔액이 갇히지 않게 한다.
+  const shortfall = r.expected_amount - amount;
   const out = transition(rid, "available", "반품기간·내부검증·정산 정책 통과");
   bookAvailable({ userId: r.user_id, rewardTransactionId: rid, amount });
+  if (shortfall > 0) {
+    bookReversal({ userId: r.user_id, rewardTransactionId: rid, amount: shortfall, from: "pending" });
+  }
   return out;
 }
 
@@ -112,11 +122,14 @@ export function reverse(rid: string, reason: string): RewardRow {
   const r = getReward(rid);
   if (!r) throw Problems.notFound("보상 거래");
   const amount = r.approved_amount ?? r.expected_amount;
-  // 원장 회수: 현재 사용자 잔액 위치에 따라 회수 계정 결정
+  // 원장 회수: 현재 사용자 잔액 위치에 따라 회수 계정 결정.
+  // reserved/paid(지급 진행/완료)는 여기서 되돌리면 원장과 불일치가 나므로 지급 취소 흐름으로만 처리.
   if (r.state === "pending" || r.state === "approved") {
     bookReversal({ userId: r.user_id, rewardTransactionId: rid, amount, from: "pending" });
   } else if (r.state === "available") {
     bookReversal({ userId: r.user_id, rewardTransactionId: rid, amount, from: "available" });
+  } else {
+    throw Problems.conflict("이 상태의 보상은 직접 취소할 수 없습니다.", `${r.state} 상태는 지급(payout) 취소 흐름으로 처리하세요.`);
   }
   return transition(rid, "reversed", reason);
 }

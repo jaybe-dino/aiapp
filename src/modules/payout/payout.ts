@@ -2,7 +2,7 @@
 // 1) 멱등성 검증 → 2) 원장에서 available→payout_reserved 예약 + payout_order(RESERVED)
 // → 3) Worker가 쿠폰 발급 → 4) 성공: paid, 명확한 실패: 예약 해제(available 복구)
 // → 5) UNKNOWN: 재발급 없이 상태 보류 후 대사(사용자 잔액은 예약 상태로 보호).
-import { db } from "../../db/index.js";
+import { db, tx } from "../../db/index.js";
 import { id, now, sha256 } from "../../lib/id.js";
 import { Problems } from "../../lib/problem.js";
 import { bookPayoutReserve, bookPayoutPaid, bookPayoutReversed } from "../ledger/ledger.js";
@@ -40,14 +40,17 @@ export async function requestPayout(p: {
   const payoutId = id("pay");
   const ts = now();
 
-  // 예약: 원장 트랜잭션(잔액 부족이면 여기서 409). payout_order 생성.
-  bookPayoutReserve({ userId: p.userId, payoutId, amount: p.amount });
-  db.prepare(
-    `INSERT INTO payout_orders (payout_id, user_id, amount, currency, product_id, status, coupon_code, idempotency_key, created_at, updated_at)
-     VALUES (?, ?, ?, 'KRW', ?, 'reserved', NULL, ?, ?, ?)`
-  ).run(payoutId, p.userId, p.amount, p.productId, p.idempotencyKey, ts, ts);
+  // [원자성] 예약(available→reserved)과 주문 생성을 한 트랜잭션으로 묶는다.
+  // 둘 사이 크래시로 '예약은 됐는데 주문이 없어' 재시도 시 이중 예약되는 문제를 차단.
+  tx(() => {
+    bookPayoutReserve({ userId: p.userId, payoutId, amount: p.amount }); // 잔액 부족이면 여기서 409
+    db.prepare(
+      `INSERT INTO payout_orders (payout_id, user_id, amount, currency, product_id, status, coupon_code, idempotency_key, created_at, updated_at)
+       VALUES (?, ?, ?, 'KRW', ?, 'reserved', NULL, ?, ?, ?)`
+    ).run(payoutId, p.userId, p.amount, p.productId, p.idempotencyKey, ts, ts);
+  });
 
-  await runSaga(payoutId);
+  await runSaga(payoutId); // 쿠폰 발급은 비동기라 트랜잭션 밖에서 진행
   return getPayout(payoutId)!;
 }
 
