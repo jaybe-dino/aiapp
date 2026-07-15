@@ -72,7 +72,7 @@ export interface OfferCard {
   mandatoryMonths: number | null;
 }
 
-export const Api = {
+const RealApi = {
   baseUrl: BASE,
   async createConversation() {
     return req<{ conversation_id: string }>("/v1/conversations", { method: "POST", body: "{}" });
@@ -155,3 +155,43 @@ export interface CashwalkStatus {
   claimable: number[];
   earnedToday: number;
 }
+
+// ---- 오프라인 데모 모드 자동 전환 ----------------------------------------
+// 서버 연결에 실패하면(네트워크 오류) 자동으로 내장 목업으로 전환한다.
+// → 백엔드 없이 npx expo start 만으로 아이폰에서 전체 화면 체험 가능.
+import { MockApi } from "./mock";
+
+export let demoMode = process.env.EXPO_PUBLIC_DEMO === "1";
+type DemoListener = (on: boolean) => void;
+const demoListeners: DemoListener[] = [];
+export function onDemoMode(cb: DemoListener): () => void {
+  demoListeners.push(cb);
+  cb(demoMode);
+  return () => { const i = demoListeners.indexOf(cb); if (i >= 0) demoListeners.splice(i, 1); };
+}
+function enableDemo() {
+  if (demoMode) return;
+  demoMode = true;
+  demoListeners.forEach((l) => l(true));
+}
+// 서버가 보낸 problem 객체(code/title 보유)가 아니면 네트워크 오류로 간주.
+function isNetworkError(e: any): boolean {
+  return !!e && typeof e === "object" && !("code" in e) && !("title" in e);
+}
+
+// RealApi 를 감싸: demoMode 면 MockApi, 아니면 실서버 호출(실패 시 자동 데모 전환).
+export const Api: typeof RealApi = new Proxy(RealApi, {
+  get(target, prop: string | symbol) {
+    const real = (target as any)[prop];
+    if (typeof real !== "function") return real;
+    return async (...args: any[]) => {
+      if (demoMode) return (MockApi as any)[prop](...args);
+      try {
+        return await real(...args);
+      } catch (e) {
+        if (isNetworkError(e) && (MockApi as any)[prop]) { enableDemo(); return (MockApi as any)[prop](...args); }
+        throw e;
+      }
+    };
+  },
+});
