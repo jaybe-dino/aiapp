@@ -66,11 +66,11 @@ async function renderAI() {
     <div class="ai-chat">
       <div id="emptyState">
         <div style="display:flex;justify-content:space-between;align-items:flex-start">
-          <div><div class="hello">안녕하세요</div><div class="h-big">무엇을<br>도와드릴까요?</div></div>
-          <div class="wallet-box"><div class="l">사용 가능</div><div class="v">${won(w.available)}</div></div>
+          <div><div class="hello">안녕하세요 👋</div><div class="h-big">무엇이<br>궁금하세요?</div></div>
+          <div class="wallet-box"><div class="l">내 포인트</div><div class="v">${w.available.toLocaleString("ko-KR")}P</div></div>
         </div>
-        <button class="voice-btn" id="voice"><span class="mic">🎤</span><span class="t">눌러서 말하기</span></button>
-        <p class="voice-hint">궁금한 걸 편하게 물어보세요.<br>관련된 혜택·미션도 함께 찾아드려요.</p>
+        <p class="voice-hint" style="text-align:left;margin:2px 0 16px">궁금한 걸 편하게 물어보세요. 대화 속에서 필요할 때만<br>딱 맞는 혜택과 포인트를 연결해 드려요.</p>
+        <button class="talk-btn" id="voice"><span class="mic">🎤</span><span class="tx"><b>눌러서 물어보기</b><span class="sub">천천히 말하거나 글로 입력해도 돼요</span></span><span class="arw">›</span></button>
         <div class="quick-head">이런 걸 물어볼 수 있어요</div>
         <div id="quicks"></div>
       </div>
@@ -78,7 +78,7 @@ async function renderAI() {
       <div class="ask chat-input">
         <span class="muted">✎</span>
         <input id="q" placeholder="메시지를 입력하세요" />
-        <button class="btn btn-primary" id="send" style="width:auto;min-height:auto;padding:12px 16px;border-radius:12px">보내기</button>
+        <button class="send-btn" id="send" aria-label="보내기">↑</button>
       </div>
     </div>`));
   const quicks = v.querySelector("#quicks");
@@ -108,7 +108,7 @@ async function ask(text) {
   // 사용자 말풍선을 먼저 아래에 붙이고 스크롤(채팅처럼 순서대로)
   const userMsg = el(`<div class="msg-row"><div class="user-bubble">${esc(q)}</div></div>`);
   thread.appendChild(userMsg); chatLog.push(userMsg);
-  const loading = el(`<div class="msg-row"><div class="card answer"><div class="muted">답변을 준비하고 있어요…</div></div></div>`);
+  const loading = el(`<div class="msg-row"><div class="card answer typing"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div></div>`);
   thread.appendChild(loading);
   scrollChatToEnd();
   try {
@@ -140,12 +140,52 @@ function answerBlock(r) {
       <div id="ad"></div>
     </div>`);
   const ad = block.querySelector("#ad");
+  const need = r.needLevel || (r.matched && r.matched.benefits && r.matched.benefits.length ? "ready" : "none");
   const benefits = (r.matched && r.matched.benefits) || (r.commercial ? [r.commercial] : []);
   const missions = (r.matched && r.matched.missions) || [];
-  if (benefits.length) { ad.appendChild(el(`<div class="quick-head" style="margin-top:6px">🛍️ 관련 혜택</div>`)); benefits.forEach((o) => ad.appendChild(offerCard(o, r.answerSnapshotId))); }
-  if (missions.length) { ad.appendChild(el(`<div class="quick-head">🎯 함께 하면 좋은 미션</div>`)); missions.forEach((o) => ad.appendChild(offerCard(o, r.answerSnapshotId))); }
-  if (!benefits.length && !missions.length) ad.appendChild(el(`<div class="disclose">이 질문과 딱 맞는 광고·제휴 혜택이 없어 표시하지 않았어요. (답변은 광고와 무관하게 완결됩니다.)</div>`));
+
+  if (need === "ready") {
+    benefits.forEach((o) => ad.appendChild(offerCard(o, r.answerSnapshotId)));
+    missions.forEach((o) => ad.appendChild(offerCard(o, r.answerSnapshotId)));
+  } else if (need === "exploring" && benefits.length) {
+    ad.appendChild(softSuggestion(benefits[0], r.answerSnapshotId));
+  }
+
+  if (r.rewardNudge) ad.appendChild(nudgeChip(r.rewardNudge));
+
+  if (need === "none" && !r.rewardNudge) {
+    ad.appendChild(el(`<div class="ai-note">지금은 안내에 집중했어요. 필요한 순간에만 혜택을 연결해 드려요.</div>`));
+  }
   return block;
+}
+
+// exploring: 부드러운 제안 — 누르면 카드가 펼쳐진다(포인트 앞세움)
+function softSuggestion(o, answerSnapshotId) {
+  const wrap = el(`<div>
+    <button class="soft-sug">
+      <span class="e">💡</span>
+      <span class="tx"><b>관련해서 도움받을 수 있어요</b><span class="sub">${esc(o.title)} · 확정 시 최대 ${o.expectedReward.toLocaleString("ko-KR")}P</span></span>
+      <span class="tg">보기</span>
+    </button>
+    <div class="soft-body" style="display:none"></div>
+  </div>`);
+  const btn = wrap.querySelector(".soft-sug"), body = wrap.querySelector(".soft-body"), tg = wrap.querySelector(".tg");
+  let open = false, built = false;
+  btn.addEventListener("click", () => {
+    open = !open;
+    if (open && !built) { body.appendChild(offerCard(o, answerSnapshotId)); built = true; }
+    body.style.display = open ? "block" : "none";
+    tg.textContent = open ? "접기" : "보기";
+  });
+  return wrap;
+}
+
+// 대화 맥락 리워드 넛지 — 걷기/미션 탭으로 연결
+function nudgeChip(kind) {
+  const walk = kind === "walk";
+  const c = el(`<button class="nudge-chip"><span class="e">${walk ? "👟" : "🎯"}</span><span class="tx">${walk ? "지금 걸으면 포인트가 쌓여요" : "짧은 미션으로 포인트 모으기"}</span><span class="go">바로가기 ›</span></button>`);
+  c.addEventListener("click", () => { const t = walk ? "walk" : "mission"; document.querySelector(`#tabbar button[data-tab="${t}"]`).click(); });
+  return c;
 }
 
 // ---------- 오퍼 카드 ----------

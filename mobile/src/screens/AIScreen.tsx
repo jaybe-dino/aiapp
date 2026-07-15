@@ -1,44 +1,60 @@
-import React, { useCallback, useRef, useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform } from "react-native";
-import { useFocusEffect } from "@react-navigation/native";
-import { T, won } from "../theme";
-import { Api, OfferCard as Offer } from "../api";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import {
+  View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, Animated, Easing,
+  KeyboardAvoidingView, Platform, LayoutAnimation, UIManager,
+} from "react-native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import { T } from "../theme";
+import { Api, OfferCard as Offer, NeedLevel, RewardNudge } from "../api";
 import OfferCard from "../components/OfferCard";
+
+if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+const ease = () => LayoutAnimation.configureNext(LayoutAnimation.create(220, "easeInEaseOut", "opacity"));
+const P = (n: number) => (n ?? 0).toLocaleString("ko-KR") + "P";
 
 type Msg =
   | { role: "user"; text: string }
   | { role: "loading" }
-  | { role: "ai"; summary: string; sections: { title: string; body: string }[]; uncertainty: string; benefits: Offer[]; missions: Offer[]; answerSnapshotId: string };
+  | {
+      role: "ai"; summary: string; sections: { title: string; body: string }[]; uncertainty: string;
+      needLevel: NeedLevel; benefits: Offer[]; missions: Offer[]; rewardNudge: RewardNudge; answerSnapshotId: string;
+    };
 
 const QUICK = [
   { emoji: "💰", label: "생활비를 줄이고 싶어요" },
   { emoji: "🧳", label: "여행·쇼핑 가격을 비교해요" },
   { emoji: "🚰", label: "정수기 렌탈을 알아봐요" },
-  { emoji: "📍", label: "우리 동네 서비스를 찾아요" },
+  { emoji: "👟", label: "걸으면서 포인트 모으기" },
 ];
 
 export default function AIScreen() {
+  const nav = useNavigation<any>();
   const [text, setText] = useState("");
   const [messages, setMessages] = useState<Msg[]>([]);
   const [busy, setBusy] = useState(false);
   const [available, setAvailable] = useState(0);
   const convId = useRef<string | null>(null);
   const scrollRef = useRef<ScrollView>(null);
+  const inputRef = useRef<TextInput>(null);
 
   useFocusEffect(useCallback(() => { Api.wallet().then((w) => setAvailable(w.available)).catch(() => {}); }, []));
 
-  const scrollToEnd = () => setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 60);
+  const scrollToEnd = () => setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 70);
 
   async function ask(q?: string) {
     const question = (q ?? text).trim();
     if (!question || busy) return;
     setText("");
+    ease();
     setMessages((m) => [...m, { role: "user", text: question }, { role: "loading" }]);
     setBusy(true);
     scrollToEnd();
     try {
       if (!convId.current) convId.current = (await Api.createConversation()).conversation_id;
       const r = await Api.ask(convId.current, question);
+      ease();
       setMessages((m) => [
         ...m.filter((x) => x.role !== "loading"),
         {
@@ -46,69 +62,83 @@ export default function AIScreen() {
           summary: r.answer.summary,
           sections: r.answer.sections,
           uncertainty: r.answer.uncertainty.message,
+          needLevel: r.needLevel ?? (r.matched?.benefits.length ? "ready" : "none"),
           benefits: r.matched?.benefits ?? (r.commercial ? [r.commercial] : []),
           missions: r.matched?.missions ?? [],
+          rewardNudge: r.rewardNudge ?? null,
           answerSnapshotId: r.answerSnapshotId,
         },
       ]);
     } catch {
-      setMessages((m) => [...m.filter((x) => x.role !== "loading"), { role: "ai", summary: "잠시 후 다시 시도해주세요.", sections: [], uncertainty: "", benefits: [], missions: [], answerSnapshotId: "" }]);
+      ease();
+      setMessages((m) => [...m.filter((x) => x.role !== "loading"), { role: "ai", summary: "잠시 후 다시 시도해주세요.", sections: [], uncertainty: "", needLevel: "none", benefits: [], missions: [], rewardNudge: null, answerSnapshotId: "" }]);
     } finally {
       setBusy(false);
       scrollToEnd();
     }
   }
 
+  const goTab = (name: string) => nav.navigate(name);
   const empty = messages.length === 0;
 
   return (
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: T.bg }} behavior={Platform.OS === "ios" ? "padding" : undefined} keyboardVerticalOffset={90}>
-      <ScrollView ref={scrollRef} style={{ flex: 1 }} contentContainerStyle={{ padding: 18, paddingBottom: 8 }} keyboardShouldPersistTaps="handled" onContentSizeChange={scrollToEnd}>
+      <ScrollView ref={scrollRef} style={{ flex: 1 }} contentContainerStyle={{ padding: 18, paddingBottom: 10 }} keyboardShouldPersistTaps="handled" onContentSizeChange={scrollToEnd} showsVerticalScrollIndicator={false}>
         {empty ? (
           <View>
             <View style={s.headRow}>
-              <View><Text style={s.hello}>안녕하세요</Text><Text style={s.h}>무엇을{"\n"}도와드릴까요?</Text></View>
-              <View style={s.walletPill}><Text style={s.walletLabel}>사용 가능</Text><Text style={s.walletValue}>{won(available)}</Text></View>
+              <View style={{ flex: 1 }}>
+                <Text style={s.hello}>안녕하세요 👋</Text>
+                <Text style={s.h}>무엇이{"\n"}궁금하세요?</Text>
+              </View>
+              <View style={s.walletPill}><Text style={s.walletLabel}>내 포인트</Text><Text style={s.walletValue}>{P(available)}</Text></View>
             </View>
-            <TouchableOpacity style={s.voiceBtn} activeOpacity={0.9} onPress={() => scrollToEnd()}>
-              <Text style={s.voiceMic}>🎤</Text><Text style={s.voiceText}>눌러서 말하기</Text>
+            <Text style={s.lead}>궁금한 걸 편하게 물어보세요. 대화 속에서 필요할 때만{"\n"}딱 맞는 혜택과 포인트를 연결해 드려요.</Text>
+
+            <TouchableOpacity style={s.talk} activeOpacity={0.9} onPress={() => inputRef.current?.focus()}>
+              <View style={s.talkMic}><Text style={{ fontSize: 22 }}>🎤</Text></View>
+              <View style={{ flex: 1 }}><Text style={s.talkTitle}>눌러서 물어보기</Text><Text style={s.talkSub}>천천히 말하거나 글로 입력해도 돼요</Text></View>
+              <Text style={s.talkArrow}>›</Text>
             </TouchableOpacity>
-            <Text style={s.voiceHint}>궁금한 걸 편하게 물어보세요.{"\n"}관련된 혜택·미션도 함께 찾아드려요.</Text>
-            <Text style={s.quickHead}>이런 걸 물어볼 수 있어요</Text>
-            {QUICK.map((qq) => (
-              <TouchableOpacity key={qq.label} style={s.quick} onPress={() => ask(qq.label)} activeOpacity={0.8}>
-                <Text style={s.quickEmoji}>{qq.emoji}</Text><Text style={s.quickText}>{qq.label}</Text>
-              </TouchableOpacity>
-            ))}
+
+            <Text style={s.quickHead}>이런 걸 도와드려요</Text>
+            <View style={s.chipWrap}>
+              {QUICK.map((qq) => (
+                <TouchableOpacity key={qq.label} style={s.chip} onPress={() => ask(qq.label)} activeOpacity={0.85}>
+                  <Text style={s.chipEmoji}>{qq.emoji}</Text><Text style={s.chipText}>{qq.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
         ) : (
-          messages.map((m, i) => <MessageView key={i} m={m} />)
+          messages.map((m, i) => <MessageView key={i} m={m} goTab={goTab} />)
         )}
       </ScrollView>
 
-      {/* 입력창 — 항상 하단 고정 */}
       <View style={s.inputBar}>
         <View style={s.inputWrap}>
-          <TextInput style={s.input} placeholder="메시지를 입력하세요" placeholderTextColor={T.muted} value={text} onChangeText={setText} onSubmitEditing={() => ask()} returnKeyType="send" multiline />
+          <TextInput ref={inputRef} style={s.input} placeholder="메시지를 입력하세요" placeholderTextColor={T.muted} value={text} onChangeText={setText} onSubmitEditing={() => ask()} returnKeyType="send" multiline />
         </View>
-        <TouchableOpacity style={[s.send, (!text.trim() || busy) && { opacity: 0.4 }]} onPress={() => ask()} disabled={!text.trim() || busy}>
-          {busy ? <ActivityIndicator color="#fff" /> : <Text style={s.sendText}>보내기</Text>}
+        <TouchableOpacity style={[s.send, (!text.trim() || busy) && { opacity: 0.35 }]} onPress={() => ask()} disabled={!text.trim() || busy} activeOpacity={0.85}>
+          <Text style={s.sendIcon}>↑</Text>
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
   );
 }
 
-function MessageView({ m }: { m: Msg }) {
+function MessageView({ m, goTab }: { m: Msg; goTab: (n: string) => void }) {
   if (m.role === "user") return <View style={s.userBubble}><Text style={s.userText}>{m.text}</Text></View>;
-  if (m.role === "loading") return <View style={s.aiCard}><ActivityIndicator color={T.brand} /></View>;
+  if (m.role === "loading") return <View style={s.aiCard}><TypingDots /></View>;
+
+  const failed = m.summary === "잠시 후 다시 시도해주세요.";
   return (
-    <View style={{ marginBottom: 4 }}>
+    <View style={{ marginBottom: 6 }}>
       <View style={s.aiCard}>
-        <View style={s.aiBadgeRow}><View style={s.aiBadge}><Text style={s.aiBadgeText}>AI</Text></View><Text style={s.aiBadgeLabel}>AI 답변</Text></View>
+        <View style={s.aiBadgeRow}><View style={s.aiBadge}><Text style={s.aiBadgeText}>AI</Text></View><Text style={s.aiBadgeLabel}>도우미</Text></View>
         <Text style={s.summary}>{m.summary}</Text>
         {m.sections.map((sec, j) => (
-          <View key={j} style={{ marginTop: 8 }}>
+          <View key={j} style={{ marginTop: 10 }}>
             <Text style={s.secTitle}>{sec.title}</Text>
             <Text style={s.secBody}>{sec.body}</Text>
           </View>
@@ -116,60 +146,125 @@ function MessageView({ m }: { m: Msg }) {
         {!!m.uncertainty && <View style={s.uncertain}><Text style={s.uncertainText}>⚠️ {m.uncertainty}</Text></View>}
       </View>
 
-      {m.benefits.length > 0 && (
-        <>
-          <Text style={s.matchHead}>🛍️ 관련 혜택</Text>
-          {m.benefits.map((o) => <OfferCard key={o.offerSnapshotId} offer={o} answerSnapshotId={m.answerSnapshotId} />)}
-        </>
-      )}
-      {m.missions.length > 0 && (
-        <>
-          <Text style={s.matchHead}>🎯 함께 하면 좋은 미션</Text>
-          {m.missions.map((o) => <OfferCard key={o.offerSnapshotId} offer={o} answerSnapshotId={m.answerSnapshotId} />)}
-        </>
-      )}
-      {m.benefits.length === 0 && m.missions.length === 0 && !!m.summary && m.summary !== "잠시 후 다시 시도해주세요." && (
-        <View style={s.noAd}><Text style={s.noAdText}>이 질문과 딱 맞는 광고·제휴 혜택이 없어 표시하지 않았어요. 답변은 광고와 무관하게 완결됩니다.</Text></View>
+      {/* ready: 전체 카드 즉시 노출 */}
+      {m.needLevel === "ready" && m.benefits.map((o) => <OfferCard key={o.offerSnapshotId} offer={o} answerSnapshotId={m.answerSnapshotId} />)}
+      {/* exploring: 부드러운 제안(탭하면 펼침) */}
+      {m.needLevel === "exploring" && m.benefits.length > 0 && <SoftSuggestion benefit={m.benefits[0]!} answerSnapshotId={m.answerSnapshotId} />}
+      {/* 미션은 ready에서만 곁들임 */}
+      {m.needLevel === "ready" && m.missions.map((o) => <OfferCard key={o.offerSnapshotId} offer={o} answerSnapshotId={m.answerSnapshotId} />)}
+
+      {/* 리워드 넛지 — 대화 맥락에 맞을 때 걷기/미션으로 연결 */}
+      {m.rewardNudge && <NudgeChip kind={m.rewardNudge} onPress={() => goTab(m.rewardNudge === "walk" ? "걷기" : "미션")} />}
+
+      {!failed && m.needLevel === "none" && !m.rewardNudge && (
+        <View style={s.noAd}><Text style={s.noAdText}>지금은 안내에 집중했어요. 필요한 순간에만 혜택을 연결해 드려요.</Text></View>
       )}
     </View>
   );
 }
 
-const s = StyleSheet.create({
-  headRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 18 },
-  hello: { color: T.muted, fontSize: 16, fontWeight: "700", marginBottom: 2 },
-  h: { fontSize: 30, fontWeight: "900", color: T.ink, lineHeight: 38 },
-  walletPill: { backgroundColor: T.brandSoft, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 10, alignItems: "center", marginTop: 4 },
-  walletLabel: { color: T.brandDark, fontSize: 12, fontWeight: "700" },
-  walletValue: { color: T.brand, fontSize: 18, fontWeight: "900", marginTop: 2 },
-  voiceBtn: { alignSelf: "center", width: 168, height: 168, borderRadius: 84, backgroundColor: T.brand, justifyContent: "center", alignItems: "center", marginTop: 8, shadowColor: T.brand, shadowOpacity: 0.35, shadowRadius: 20, shadowOffset: { width: 0, height: 8 }, elevation: 6 },
-  voiceMic: { fontSize: 42 },
-  voiceText: { color: "#fff", fontWeight: "800", fontSize: 18, marginTop: 6 },
-  voiceHint: { textAlign: "center", color: T.muted, marginTop: 16, fontSize: 15, lineHeight: 22 },
-  quickHead: { color: T.muted, fontWeight: "800", fontSize: 15, marginTop: 22, marginBottom: 10 },
-  quick: { flexDirection: "row", alignItems: "center", backgroundColor: T.card, borderRadius: 16, borderWidth: 1, borderColor: T.line, paddingVertical: 18, paddingHorizontal: 16, marginBottom: 10, gap: 12 },
-  quickEmoji: { fontSize: 22 },
-  quickText: { fontSize: 17, fontWeight: "700", color: T.ink },
+// 확장형 부드러운 제안 — exploring 단계. 포인트를 앞세우고, 탭하면 카드가 펼쳐진다.
+function SoftSuggestion({ benefit, answerSnapshotId }: { benefit: Offer; answerSnapshotId?: string | null }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <View>
+      <TouchableOpacity style={s.soft} activeOpacity={0.9} onPress={() => { ease(); setOpen((v) => !v); }}>
+        <Text style={s.softEmoji}>💡</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={s.softTitle}>관련해서 도움받을 수 있어요</Text>
+          <Text style={s.softSub}>{benefit.title} · 확정 시 최대 {P(benefit.expectedReward)}</Text>
+        </View>
+        <Text style={s.softToggle}>{open ? "접기" : "보기"}</Text>
+      </TouchableOpacity>
+      {open && <OfferCard offer={benefit} answerSnapshotId={answerSnapshotId} />}
+    </View>
+  );
+}
 
-  userBubble: { alignSelf: "flex-end", backgroundColor: T.brand, borderRadius: 20, borderBottomRightRadius: 6, paddingVertical: 13, paddingHorizontal: 16, maxWidth: "86%", marginBottom: 12 },
+function NudgeChip({ kind, onPress }: { kind: "walk" | "mission"; onPress: () => void }) {
+  const walk = kind === "walk";
+  return (
+    <TouchableOpacity style={s.nudge} activeOpacity={0.9} onPress={onPress}>
+      <Text style={s.nudgeEmoji}>{walk ? "👟" : "🎯"}</Text>
+      <Text style={s.nudgeText}>{walk ? "지금 걸으면 포인트가 쌓여요" : "짧은 미션으로 포인트 모으기"}</Text>
+      <Text style={s.nudgeGo}>바로가기 ›</Text>
+    </TouchableOpacity>
+  );
+}
+
+function TypingDots() {
+  const dots = [useRef(new Animated.Value(0)).current, useRef(new Animated.Value(0)).current, useRef(new Animated.Value(0)).current];
+  useEffect(() => {
+    const anims = dots.map((d, i) =>
+      Animated.loop(Animated.sequence([
+        Animated.delay(i * 160),
+        Animated.timing(d, { toValue: 1, duration: 320, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        Animated.timing(d, { toValue: 0, duration: 320, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+      ]))
+    );
+    anims.forEach((a) => a.start());
+    return () => anims.forEach((a) => a.stop());
+  }, []);
+  return (
+    <View style={{ flexDirection: "row", gap: 6, alignItems: "center", paddingVertical: 2 }}>
+      {dots.map((d, i) => (
+        <Animated.View key={i} style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: T.brand, opacity: d.interpolate({ inputRange: [0, 1], outputRange: [0.25, 1] }), transform: [{ translateY: d.interpolate({ inputRange: [0, 1], outputRange: [0, -4] }) }] }} />
+      ))}
+    </View>
+  );
+}
+
+const s = StyleSheet.create({
+  headRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 },
+  hello: { color: T.muted, fontSize: 16, fontWeight: "700", marginBottom: 4 },
+  h: { fontSize: 32, fontWeight: "900", color: T.ink, lineHeight: 40 },
+  walletPill: { backgroundColor: T.brandSoft, borderRadius: 18, paddingHorizontal: 15, paddingVertical: 9, alignItems: "center", marginTop: 4 },
+  walletLabel: { color: T.brandDark, fontSize: 11.5, fontWeight: "800" },
+  walletValue: { color: T.brand, fontSize: 17, fontWeight: "900", marginTop: 2 },
+  lead: { color: T.muted, fontSize: 14.5, lineHeight: 21, marginBottom: 18 },
+
+  talk: { flexDirection: "row", alignItems: "center", gap: 14, backgroundColor: T.brand, borderRadius: 20, padding: 16, shadowColor: T.brand, shadowOpacity: 0.28, shadowRadius: 16, shadowOffset: { width: 0, height: 8 }, elevation: 5 },
+  talkMic: { width: 46, height: 46, borderRadius: 23, backgroundColor: "rgba(255,255,255,0.18)", justifyContent: "center", alignItems: "center" },
+  talkTitle: { color: "#fff", fontWeight: "900", fontSize: 18 },
+  talkSub: { color: "rgba(255,255,255,0.82)", fontSize: 13, marginTop: 2 },
+  talkArrow: { color: "#fff", fontSize: 26, fontWeight: "300" },
+
+  quickHead: { color: T.muted, fontWeight: "800", fontSize: 14.5, marginTop: 24, marginBottom: 12 },
+  chipWrap: { gap: 10 },
+  chip: { flexDirection: "row", alignItems: "center", backgroundColor: T.card, borderRadius: 16, borderWidth: 1, borderColor: T.line, paddingVertical: 16, paddingHorizontal: 16, gap: 13 },
+  chipEmoji: { fontSize: 20 },
+  chipText: { fontSize: 16, fontWeight: "700", color: T.ink },
+
+  userBubble: { alignSelf: "flex-end", backgroundColor: T.brand, borderRadius: 22, borderBottomRightRadius: 7, paddingVertical: 13, paddingHorizontal: 17, maxWidth: "85%", marginBottom: 14, shadowColor: T.brand, shadowOpacity: 0.18, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 2 },
   userText: { color: "#fff", fontSize: 16.5, fontWeight: "700", lineHeight: 23 },
-  aiCard: { alignSelf: "flex-start", backgroundColor: T.card, borderWidth: 1, borderColor: T.line, borderRadius: 20, borderBottomLeftRadius: 6, padding: 16, marginBottom: 12, maxWidth: "94%" },
-  aiBadgeRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 },
-  aiBadge: { backgroundColor: T.brandSoft, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
-  aiBadgeText: { color: T.brand, fontWeight: "900", fontSize: 12 },
-  aiBadgeLabel: { color: T.muted, fontWeight: "700" },
+  aiCard: { alignSelf: "flex-start", backgroundColor: T.card, borderWidth: 1, borderColor: T.line, borderRadius: 22, borderBottomLeftRadius: 7, padding: 17, marginBottom: 12, maxWidth: "95%", shadowColor: "#000", shadowOpacity: 0.04, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 1 },
+  aiBadgeRow: { flexDirection: "row", alignItems: "center", gap: 7, marginBottom: 9 },
+  aiBadge: { backgroundColor: T.brand, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
+  aiBadgeText: { color: "#fff", fontWeight: "900", fontSize: 11.5 },
+  aiBadgeLabel: { color: T.muted, fontWeight: "800", fontSize: 13 },
   summary: { fontSize: 18, fontWeight: "800", color: T.ink, lineHeight: 26 },
   secTitle: { fontWeight: "800", color: T.ink, marginBottom: 3, fontSize: 15.5 },
   secBody: { color: T.ink, fontSize: 15, lineHeight: 22 },
-  uncertain: { backgroundColor: "#fbf6ea", borderWidth: 1, borderColor: "#eedec0", borderRadius: 12, padding: 12, marginTop: 10 },
+  uncertain: { backgroundColor: "#fbf6ea", borderWidth: 1, borderColor: "#eedec0", borderRadius: 13, padding: 12, marginTop: 12 },
   uncertainText: { color: "#7a5b1e", fontSize: 13.5, lineHeight: 20 },
-  matchHead: { fontWeight: "800", color: T.ink, fontSize: 16, marginBottom: 8, marginTop: 2 },
-  noAd: { backgroundColor: T.inset, borderRadius: 12, padding: 12, marginBottom: 12 },
-  noAdText: { color: T.muted, fontSize: 13.5, lineHeight: 20 },
 
-  inputBar: { flexDirection: "row", alignItems: "flex-end", gap: 8, paddingHorizontal: 14, paddingTop: 8, paddingBottom: Platform.OS === "ios" ? 24 : 12, backgroundColor: T.card, borderTopWidth: 1, borderTopColor: T.line },
-  inputWrap: { flex: 1, backgroundColor: T.bg, borderRadius: 20, borderWidth: 1, borderColor: T.line, paddingHorizontal: 16, justifyContent: "center", minHeight: 48, maxHeight: 120 },
-  input: { fontSize: 16.5, color: T.ink, paddingVertical: Platform.OS === "ios" ? 12 : 8 },
-  send: { backgroundColor: T.brand, borderRadius: 20, paddingHorizontal: 18, height: 48, justifyContent: "center", alignItems: "center" },
-  sendText: { color: "#fff", fontWeight: "800", fontSize: 16 },
+  soft: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: T.brandSoft, borderRadius: 18, borderWidth: 1, borderColor: "#cfe4da", paddingVertical: 14, paddingHorizontal: 15, marginBottom: 12 },
+  softEmoji: { fontSize: 20 },
+  softTitle: { fontWeight: "800", color: T.brandDark, fontSize: 15 },
+  softSub: { color: T.brand, fontSize: 13.5, marginTop: 2, fontWeight: "600" },
+  softToggle: { color: "#fff", backgroundColor: T.brand, overflow: "hidden", borderRadius: 12, paddingHorizontal: 13, paddingVertical: 7, fontWeight: "800", fontSize: 13.5 },
+
+  nudge: { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: T.accentSoft, borderRadius: 16, borderWidth: 1, borderColor: T.accentLine, paddingVertical: 13, paddingHorizontal: 15, marginBottom: 12 },
+  nudgeEmoji: { fontSize: 19 },
+  nudgeText: { flex: 1, color: "#8a5626", fontWeight: "800", fontSize: 14.5 },
+  nudgeGo: { color: T.accent, fontWeight: "800", fontSize: 13.5 },
+
+  noAd: { backgroundColor: T.inset, borderRadius: 13, padding: 13, marginBottom: 12 },
+  noAdText: { color: T.muted, fontSize: 13, lineHeight: 19 },
+
+  inputBar: { flexDirection: "row", alignItems: "flex-end", gap: 9, paddingHorizontal: 14, paddingTop: 9, paddingBottom: Platform.OS === "ios" ? 26 : 12, backgroundColor: T.card, borderTopWidth: 1, borderTopColor: T.line },
+  inputWrap: { flex: 1, backgroundColor: T.bg, borderRadius: 22, borderWidth: 1, borderColor: T.line, paddingHorizontal: 17, justifyContent: "center", minHeight: 50, maxHeight: 130 },
+  input: { fontSize: 16.5, color: T.ink, paddingVertical: Platform.OS === "ios" ? 13 : 8 },
+  send: { backgroundColor: T.brand, borderRadius: 25, width: 50, height: 50, justifyContent: "center", alignItems: "center" },
+  sendIcon: { color: "#fff", fontWeight: "900", fontSize: 22, lineHeight: 24 },
 });

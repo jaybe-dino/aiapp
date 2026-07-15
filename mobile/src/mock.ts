@@ -50,6 +50,34 @@ function category(q: string): string {
   return "life";
 }
 
+type NeedLevel = "none" | "exploring" | "ready";
+type Nudge = "walk" | "mission" | null;
+// 백엔드 2단계 게이팅을 데모에서도 재현: 니즈 강도 + 리워드 넛지.
+function needOf(q: string, cat: string): { need: NeedLevel; nudge: Nudge } {
+  const s = q.toLowerCase();
+  const commercial = cat === "rental" || cat === "travel" || cat === "shopping";
+  const ready = /신청|예약|가입|계약|주문|설치\s*(신청|해)|하고\s*싶|하려|할래|해줘|바꾸려|바꿀|알아보고\s*있/.test(s);
+  const need: NeedLevel = commercial ? (ready ? "ready" : "exploring") : "none";
+  let nudge: Nudge = null;
+  if (need !== "ready") {
+    if (/걷|산책|운동|건강|무릎|허리|심심|소일|용돈|생활비|절약|살\s*빼/.test(s)) nudge = "walk";
+    else if (/설문|미션|틈틈|짬|포인트\s*모/.test(s)) nudge = "mission";
+  }
+  return { need, nudge };
+}
+// 데모용 '판단형' 큐레이션: 니즈에 맞춰 이유를 써 붙인다.
+function curate(cat: string, need: NeedLevel): { benefits: OfferCard[]; missions: OfferCard[] } {
+  if (need === "none") return { benefits: [], missions: [] };
+  const pickBenefit = () => {
+    if (cat === "rental") return { ...OFFERS.rental[0]!, recommendationReason: `말씀하신 렌탈 니즈에 맞아요. 설치 확정 시 최대 ${OFFERS.rental[0]!.expectedReward.toLocaleString("ko-KR")}P.` };
+    if (cat === "travel") return { ...OFFERS.shopping[0]!, recommendationReason: `여행 예약에 맞는 제휴예요. 확정 시 ${OFFERS.shopping[0]!.expectedReward.toLocaleString("ko-KR")}P 적립.` };
+    return { ...OFFERS.shopping[1]!, recommendationReason: `조건 대비 적립이 커요. 확정 시 ${OFFERS.shopping[1]!.expectedReward.toLocaleString("ko-KR")}P.` };
+  };
+  const benefits = [pickBenefit()];
+  const missions = need === "ready" ? [{ ...OFFERS.mission[0]!, recommendationReason: `${OFFERS.mission[0]!.expectedReward}P — 짧게 참여하고 포인트 받기.` }] : [];
+  return { benefits, missions };
+}
+
 function cashwalkStatus(): CashwalkStatus {
   const unlocked = Math.min(Math.floor(state.steps / STEP_PER_MS), DAILY_CAP / STEP_PER_MS);
   const claimable: number[] = [];
@@ -78,22 +106,26 @@ export const MockApi = {
   async createConversation() { return { conversation_id: rid("cnv") }; },
   async ask(_c: string, text: string) {
     const cat = category(text);
-    const benefits = cat === "rental" ? [OFFERS.rental[0]!] : cat === "travel" ? [OFFERS.shopping[0]!] : [OFFERS.shopping[1]!, OFFERS.shopping[0]!];
-    const missions = OFFERS.mission.slice(0, 1);
+    const { need, nudge } = needOf(text, cat);
+    const matched = curate(cat, need);
     return {
       answerSnapshotId: rid("ans"),
       answer: {
         summary: cat === "rental"
           ? "정수기 렌탈은 월 요금·약정·의무기간·자동결제를 꼭 함께 비교하는 게 좋아요."
-          : `'${text.slice(0, 24)}' 관련해서 핵심부터 정리해 드릴게요.`,
+          : cat === "life"
+            ? `말씀 잘 들었어요. '${text.slice(0, 20)}'에 대해 도움드릴게요.`
+            : `'${text.slice(0, 24)}' 관련해서 핵심부터 정리해 드릴게요.`,
         sections: [
           { title: "먼저 확인할 점", body: cat === "rental" ? "월 렌탈료뿐 아니라 총 소유비용(월×약정)과 중도해지 위약금을 함께 보세요." : "핵심 조건(총비용·기간·취소 규정)을 먼저 비교하는 것이 좋아요." },
           { title: "이렇게 하면 좋아요", body: "표시 가격만 보지 말고 배송비·수수료·자동결제까지 포함한 총비용으로 판단하세요." },
         ],
         uncertainty: { message: "가격·조건은 시점에 따라 달라질 수 있어요. 진행 전에 다시 확인하세요." },
       },
-      commercial: benefits[0] ?? null,
-      matched: { benefits, missions },
+      commercial: matched.benefits[0] ?? null,
+      matched,
+      needLevel: need,
+      rewardNudge: nudge,
     };
   },
   async offers(type: "shopping" | "mission" | "rental") { return { offers: OFFERS[type] ?? [] }; },

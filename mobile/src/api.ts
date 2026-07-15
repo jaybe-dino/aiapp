@@ -72,22 +72,28 @@ export interface OfferCard {
   mandatoryMonths: number | null;
 }
 
+export type NeedLevel = "none" | "exploring" | "ready";
+export type RewardNudge = "walk" | "mission" | null;
+export interface AskResult {
+  answerSnapshotId: string;
+  answer: {
+    summary: string;
+    sections: { title: string; body: string }[];
+    uncertainty: { message: string };
+  };
+  commercial: OfferCard | null;
+  matched?: { benefits: OfferCard[]; missions: OfferCard[] };
+  needLevel?: NeedLevel;
+  rewardNudge?: RewardNudge;
+}
+
 const RealApi = {
   baseUrl: BASE,
   async createConversation() {
     return req<{ conversation_id: string }>("/v1/conversations", { method: "POST", body: "{}" });
   },
   async ask(conversationId: string, text: string) {
-    return req<{
-      answerSnapshotId: string;
-      answer: {
-        summary: string;
-        sections: { title: string; body: string }[];
-        uncertainty: { message: string };
-      };
-      commercial: OfferCard | null;
-      matched?: { benefits: OfferCard[]; missions: OfferCard[] };
-    }>(`/v1/conversations/${conversationId}/messages`, { method: "POST", body: JSON.stringify({ text }) });
+    return req<AskResult>(`/v1/conversations/${conversationId}/messages`, { method: "POST", body: JSON.stringify({ text }) });
   },
   async offers(type: "shopping" | "mission" | "rental") {
     return req<{ offers: OfferCard[] }>(`/v1/offers?type=${type}`);

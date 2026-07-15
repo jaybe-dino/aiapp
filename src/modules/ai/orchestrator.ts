@@ -4,8 +4,8 @@
 import { db } from "../../db/index.js";
 import { id, now, sha256 } from "../../lib/id.js";
 import { classifyInput } from "./safety.js";
-import { generateAnswer } from "./provider.js";
-import { selectOfferForAnswer, matchForChat, type IntentContext, type OfferCard } from "../commercial/commercial.js";
+import { generateAnswer, selectRecommendations } from "./provider.js";
+import { chatCandidateBriefs, cardsFromPicks, type IntentContext, type OfferCard } from "../commercial/commercial.js";
 
 export interface TurnResult {
   answerSnapshotId: string;
@@ -15,6 +15,8 @@ export interface TurnResult {
   policy: { riskTier: string; commercialAllowed: boolean; reasonCodes: string[] };
   commercial: OfferCard | null; // 답변 확정 후에만 채워짐. 없으면 null(No Ad Is Valid).
   matched: { benefits: OfferCard[]; missions: OfferCard[] }; // 주요 요인 매칭: 관련 혜택·미션
+  needLevel: "none" | "exploring" | "ready"; // 추천 노출 게이팅(none이면 카드 미노출)
+  rewardNudge: "walk" | "mission" | null; // 대화 맥락 기반 걷기/미션 유도(선택)
 }
 
 export async function handleTurn(p: { conversationId: string; userId: string; question: string }): Promise<TurnResult> {
@@ -45,7 +47,7 @@ export async function handleTurn(p: { conversationId: string; userId: string; qu
     finalizedAt
   );
 
-  // 5) 답변 확정 '후'에만 제한된 의도 문맥 생성 → 커머셜 호출.
+  // 5) 답변 확정 '후'에만 제한된 의도 문맥 생성.
   //    원문/민감정보는 넘기지 않고 카테고리·지역·허용여부만 전달(기획안 12.2).
   const intent: IntentContext = {
     category: answer.suggested_category === "null" ? null : answer.suggested_category,
@@ -53,8 +55,19 @@ export async function handleTurn(p: { conversationId: string; userId: string; qu
     region: "KR",
     commercialAllowed: policy.commercialAllowed,
   };
-  const commercial = selectOfferForAnswer(intent);
-  const matched = matchForChat(intent);
+
+  // 6) 니즈가 있을 때만(none이면 광고 미노출) 2단계 LLM 큐레이션.
+  //    후보 풀만 뽑아 LLM에 넘기고, LLM이 '판단'해서 고른 것만 카드로 복원한다.
+  let matched: { benefits: OfferCard[]; missions: OfferCard[] } = { benefits: [], missions: [] };
+  if (answer.need_level !== "none" && policy.commercialAllowed) {
+    const briefs = chatCandidateBriefs(intent);
+    const picks = await selectRecommendations(
+      { category: intent.category, needLevel: answer.need_level, needSummary: answer.need_summary },
+      briefs
+    );
+    matched = cardsFromPicks(picks);
+  }
+  const commercial = matched.benefits[0] ?? null; // 하위호환: 단일 오퍼 필드
 
   return {
     answerSnapshotId,
@@ -64,5 +77,7 @@ export async function handleTurn(p: { conversationId: string; userId: string; qu
     policy,
     commercial,
     matched,
+    needLevel: answer.need_level,
+    rewardNudge: answer.reward_nudge,
   };
 }

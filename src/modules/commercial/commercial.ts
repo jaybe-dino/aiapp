@@ -4,6 +4,7 @@
 import { db } from "../../db/index.js";
 import { id, now, token, hmac } from "../../lib/id.js";
 import { config } from "../../config.js";
+import type { OfferBrief, RecoPick } from "../ai/provider.js"; // 타입 전용 import(런타임 순환 없음)
 
 // 답변 확정 후 생성되는 '제한된 의도 문맥'(기획안 12.2). 원문/민감정보 없음.
 export interface IntentContext {
@@ -158,21 +159,43 @@ export function listRentalOffers(): OfferCard[] {
   return candidateOffers({ types: ["rental_cpa"] }).map((r) => toCard(r, "검수된 렌탈 제휴 · 조건을 꼭 확인하세요"));
 }
 
+function briefOf(r: OfferJoinRow, kind: "benefit" | "mission"): OfferBrief {
+  const c = toCard(r, "");
+  return {
+    offerSnapshotId: c.offerSnapshotId, kind, category: c.category, advertiserName: c.advertiserName, title: c.title,
+    isRental: c.isRental, monthlyFee: c.monthlyFee, totalCost: c.totalCost, expectedReward: c.expectedReward,
+    autoRenewal: c.autoRenewal, mandatoryMonths: c.mandatoryMonths, dataSharing: c.dataSharing,
+  };
+}
+
 /**
- * 대화 채팅용 매칭 — 답변의 주요 요인(의도 카테고리)에 맞는 혜택·미션을 함께 제시.
- * 안전(고위험)엔 노출 안 함. 혜택은 카테고리 매칭(없으면 대표 혜택), 미션은 관련 상위.
+ * 2단계 추천용 후보 요약 목록(답변 확정 '후'에만 호출).
+ * 정해진 랭킹을 반환하지 않고, LLM 큐레이터가 판단할 '후보 풀'만 제공한다.
+ * 고위험(commercialAllowed=false)이면 빈 목록.
  */
-export function matchForChat(ctx: IntentContext): { benefits: OfferCard[]; missions: OfferCard[] } {
-  if (!ctx.commercialAllowed) return { benefits: [], missions: [] };
+export function chatCandidateBriefs(ctx: IntentContext): OfferBrief[] {
+  if (!ctx.commercialAllowed) return [];
   const benefitTypes = ctx.category === "rental" ? ["rental_cpa"] : ["shopping_cps", "rental_cpa"];
   let benefitRows = candidateOffers({ category: ctx.category, types: benefitTypes });
-  if (!benefitRows.length) benefitRows = candidateOffers({ types: benefitTypes }); // 카테고리 매칭 없으면 대표 혜택
+  if (!benefitRows.length) benefitRows = candidateOffers({ types: benefitTypes }); // 카테고리 매칭 없으면 대표 혜택 풀
   const missionRows = candidateOffers({ types: ["offerwall_cpa"] });
-  const reason = ctx.category ? `질문(${ctx.category})과 관련된 혜택` : "관련 혜택";
-  return {
-    benefits: benefitRows.slice(0, 2).map((r) => toCard(r, reason)),
-    missions: missionRows.slice(0, 2).map((r) => toCard(r, "함께 하면 좋은 미션")),
-  };
+  return [
+    ...benefitRows.slice(0, 4).map((r) => briefOf(r, "benefit")),
+    ...missionRows.slice(0, 2).map((r) => briefOf(r, "mission")),
+  ];
+}
+
+/** LLM 큐레이터가 고른 픽을 실제 카드로 복원(추천 이유는 LLM이 쓴 문장으로 대체). */
+export function cardsFromPicks(picks: RecoPick[]): { benefits: OfferCard[]; missions: OfferCard[] } {
+  const benefits: OfferCard[] = [];
+  const missions: OfferCard[] = [];
+  for (const p of picks) {
+    const card = getOfferSnapshot(p.offerSnapshotId);
+    if (!card) continue;
+    card.recommendationReason = p.reason;
+    (p.kind === "mission" ? missions : benefits).push(card);
+  }
+  return { benefits, missions };
 }
 
 export function getOfferSnapshot(offerSnapshotId: string): OfferCard | null {
