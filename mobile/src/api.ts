@@ -86,6 +86,7 @@ const RealApi = {
         uncertainty: { message: string };
       };
       commercial: OfferCard | null;
+      matched?: { benefits: OfferCard[]; missions: OfferCard[] };
     }>(`/v1/conversations/${conversationId}/messages`, { method: "POST", body: JSON.stringify({ text }) });
   },
   async offers(type: "shopping" | "mission" | "rental") {

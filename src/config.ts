@@ -20,7 +20,8 @@ export const config = {
   port: Number(process.env.PORT ?? 3000),
   dbPath: process.env.DB_PATH ?? path.resolve(process.cwd(), "data", "app.db"),
   anthropicApiKey: process.env.ANTHROPIC_API_KEY ?? "",
-  aiModelTier: (process.env.AI_MODEL_TIER ?? "balanced") as "fast" | "balanced" | "reasoning",
+  // 기본은 가장 저렴한 등급(fast=Claude Haiku 4.5). 필요 시 AI_MODEL_TIER로 상향.
+  aiModelTier: (process.env.AI_MODEL_TIER ?? "fast") as "fast" | "balanced" | "reasoning",
   supplierHmacSecret: process.env.SUPPLIER_HMAC_SECRET ?? "dev-supplier-secret-change-me",
   clickSigningSecret: process.env.CLICK_SIGNING_SECRET ?? "dev-click-secret-change-me",
   couponProviderMode: (process.env.COUPON_PROVIDER_MODE ?? "success") as "success" | "fail" | "unknown",

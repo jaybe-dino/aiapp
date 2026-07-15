@@ -27,7 +27,9 @@ npm run dev          # http://localhost:3000
 ```
 
 - `ANTHROPIC_API_KEY` 가 **없어도** 결정형 mock 답변으로 전체 흐름이 동작합니다.
-- 실제 Claude를 붙이려면 `.env.example` → `.env` 복사 후 키를 채우세요(최신 Claude 모델 사용).
+- 실제 Claude를 붙이려면 `.env.example` → `.env` 복사 후 `ANTHROPIC_API_KEY` 를 채우세요.
+  기본 모델은 **가장 저렴한 Claude Haiku 4.5**(`AI_MODEL_TIER=fast`, $1/$5 per 1M)로, 실제 답변이 나옵니다.
+  더 높은 품질이 필요하면 `AI_MODEL_TIER=balanced`(Sonnet) 또는 `reasoning`(Opus)로 올리세요.
 
 ```bash
 npm test             # 원장 불변조건 테스트

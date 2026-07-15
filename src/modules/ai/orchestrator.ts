@@ -5,7 +5,7 @@ import { db } from "../../db/index.js";
 import { id, now, sha256 } from "../../lib/id.js";
 import { classifyInput } from "./safety.js";
 import { generateAnswer } from "./provider.js";
-import { selectOfferForAnswer, type IntentContext, type OfferCard } from "../commercial/commercial.js";
+import { selectOfferForAnswer, matchForChat, type IntentContext, type OfferCard } from "../commercial/commercial.js";
 
 export interface TurnResult {
   answerSnapshotId: string;
@@ -14,6 +14,7 @@ export interface TurnResult {
   citations: unknown[];
   policy: { riskTier: string; commercialAllowed: boolean; reasonCodes: string[] };
   commercial: OfferCard | null; // 답변 확정 후에만 채워짐. 없으면 null(No Ad Is Valid).
+  matched: { benefits: OfferCard[]; missions: OfferCard[] }; // 주요 요인 매칭: 관련 혜택·미션
 }
 
 export async function handleTurn(p: { conversationId: string; userId: string; question: string }): Promise<TurnResult> {
@@ -53,6 +54,7 @@ export async function handleTurn(p: { conversationId: string; userId: string; qu
     commercialAllowed: policy.commercialAllowed,
   };
   const commercial = selectOfferForAnswer(intent);
+  const matched = matchForChat(intent);
 
   return {
     answerSnapshotId,
@@ -61,5 +63,6 @@ export async function handleTurn(p: { conversationId: string; userId: string; qu
     citations: [], // MVP: RAG 인용 생략(구조만 유지)
     policy,
     commercial,
+    matched,
   };
 }

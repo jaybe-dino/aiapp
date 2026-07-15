@@ -78,18 +78,22 @@ export const MockApi = {
   async createConversation() { return { conversation_id: rid("cnv") }; },
   async ask(_c: string, text: string) {
     const cat = category(text);
-    const commercial = cat === "rental" ? OFFERS.rental[0]! : cat === "travel" ? OFFERS.shopping[0]! : cat === "shopping" ? OFFERS.shopping[1]! : null;
+    const benefits = cat === "rental" ? [OFFERS.rental[0]!] : cat === "travel" ? [OFFERS.shopping[0]!] : [OFFERS.shopping[1]!, OFFERS.shopping[0]!];
+    const missions = OFFERS.mission.slice(0, 1);
     return {
       answerSnapshotId: rid("ans"),
       answer: {
-        summary: `'${text.slice(0, 30)}'에 대해 핵심부터 정리해 드릴게요.`,
+        summary: cat === "rental"
+          ? "정수기 렌탈은 월 요금·약정·의무기간·자동결제를 꼭 함께 비교하는 게 좋아요."
+          : `'${text.slice(0, 24)}' 관련해서 핵심부터 정리해 드릴게요.`,
         sections: [
-          { title: "먼저 확인할 점", body: cat === "rental" ? "렌탈은 월 요금·약정·의무기간·자동결제를 총비용 기준으로 비교하세요." : "핵심 조건(총비용·기간·취소 규정)을 먼저 비교하는 것이 좋아요." },
-          { title: "비교 요령", body: "표시 가격만 보지 말고 배송비·수수료·자동결제까지 포함한 총비용으로 판단하세요." },
+          { title: "먼저 확인할 점", body: cat === "rental" ? "월 렌탈료뿐 아니라 총 소유비용(월×약정)과 중도해지 위약금을 함께 보세요." : "핵심 조건(총비용·기간·취소 규정)을 먼저 비교하는 것이 좋아요." },
+          { title: "이렇게 하면 좋아요", body: "표시 가격만 보지 말고 배송비·수수료·자동결제까지 포함한 총비용으로 판단하세요." },
         ],
-        uncertainty: { message: "가격·조건은 시점에 따라 달라질 수 있어요. 이동 전에 원문에서 다시 확인하세요." },
+        uncertainty: { message: "가격·조건은 시점에 따라 달라질 수 있어요. 진행 전에 다시 확인하세요." },
       },
-      commercial,
+      commercial: benefits[0] ?? null,
+      matched: { benefits, missions },
     };
   },
   async offers(type: "shopping" | "mission" | "rental") { return { offers: OFFERS[type] ?? [] }; },

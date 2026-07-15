@@ -158,6 +158,23 @@ export function listRentalOffers(): OfferCard[] {
   return candidateOffers({ types: ["rental_cpa"] }).map((r) => toCard(r, "검수된 렌탈 제휴 · 조건을 꼭 확인하세요"));
 }
 
+/**
+ * 대화 채팅용 매칭 — 답변의 주요 요인(의도 카테고리)에 맞는 혜택·미션을 함께 제시.
+ * 안전(고위험)엔 노출 안 함. 혜택은 카테고리 매칭(없으면 대표 혜택), 미션은 관련 상위.
+ */
+export function matchForChat(ctx: IntentContext): { benefits: OfferCard[]; missions: OfferCard[] } {
+  if (!ctx.commercialAllowed) return { benefits: [], missions: [] };
+  const benefitTypes = ctx.category === "rental" ? ["rental_cpa"] : ["shopping_cps", "rental_cpa"];
+  let benefitRows = candidateOffers({ category: ctx.category, types: benefitTypes });
+  if (!benefitRows.length) benefitRows = candidateOffers({ types: benefitTypes }); // 카테고리 매칭 없으면 대표 혜택
+  const missionRows = candidateOffers({ types: ["offerwall_cpa"] });
+  const reason = ctx.category ? `질문(${ctx.category})과 관련된 혜택` : "관련 혜택";
+  return {
+    benefits: benefitRows.slice(0, 2).map((r) => toCard(r, reason)),
+    missions: missionRows.slice(0, 2).map((r) => toCard(r, "함께 하면 좋은 미션")),
+  };
+}
+
 export function getOfferSnapshot(offerSnapshotId: string): OfferCard | null {
   const r = db
     .prepare(

@@ -3,9 +3,10 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { config } from "../../config.js";
 
-// 능력 등급 → 실제 모델 매핑. 최신 Claude 모델을 기본값으로 사용.
+// 능력 등급 → 실제 모델 매핑.
+// fast=Claude Haiku 4.5 — 현재 가장 저렴한 Claude 모델($1/$5 per 1M). 기본값.
 const TIER_MODEL: Record<string, string> = {
-  fast: "claude-haiku-4-5-20251001",
+  fast: "claude-haiku-4-5",
   balanced: "claude-sonnet-5",
   reasoning: "claude-opus-4-8",
 };
@@ -35,7 +36,7 @@ export async function generateAnswer(question: string, tier = config.aiModelTier
 
   try {
     const client = new Anthropic({ apiKey: config.anthropicApiKey });
-    const model = TIER_MODEL[tier] ?? TIER_MODEL.balanced!;
+    const model = TIER_MODEL[tier] ?? TIER_MODEL.fast!;
     const resp = await client.messages.create({
       model,
       max_tokens: 1200,

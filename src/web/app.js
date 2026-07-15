@@ -63,53 +63,74 @@ async function renderAI() {
   const v = document.querySelector("#view");
   v.innerHTML = "";
   v.appendChild(el(`
-    <div>
-      <div style="display:flex;justify-content:space-between;align-items:flex-start">
-        <div><div class="hello">안녕하세요</div><div class="h-big">무엇을<br>도와드릴까요?</div></div>
-        <div class="wallet-box"><div class="l">사용 가능</div><div class="v">${won(w.available)}</div></div>
+    <div class="ai-chat">
+      <div id="emptyState">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div><div class="hello">안녕하세요</div><div class="h-big">무엇을<br>도와드릴까요?</div></div>
+          <div class="wallet-box"><div class="l">사용 가능</div><div class="v">${won(w.available)}</div></div>
+        </div>
+        <button class="voice-btn" id="voice"><span class="mic">🎤</span><span class="t">눌러서 말하기</span></button>
+        <p class="voice-hint">궁금한 걸 편하게 물어보세요.<br>관련된 혜택·미션도 함께 찾아드려요.</p>
+        <div class="quick-head">이런 걸 물어볼 수 있어요</div>
+        <div id="quicks"></div>
       </div>
-      <button class="voice-btn" id="voice"><span class="mic">🎤</span><span class="t">눌러서 말하기</span></button>
-      <p class="voice-hint">천천히 말씀하셔도 돼요.<br>말씀을 글로 확인한 뒤 진행합니다.</p>
-      <div class="ask">
+      <div id="thread"></div>
+      <div class="ask chat-input">
         <span class="muted">✎</span>
-        <input id="q" placeholder="직접 입력해서 물어보기" />
+        <input id="q" placeholder="메시지를 입력하세요" />
         <button class="btn btn-primary" id="send" style="width:auto;min-height:auto;padding:12px 16px;border-radius:12px">보내기</button>
       </div>
-      <div class="quick-head">이런 걸 물어볼 수 있어요</div>
-      <div id="quicks"></div>
-      <div id="thread" class="mt"></div>
     </div>`));
   const quicks = v.querySelector("#quicks");
   QUICK.forEach((q) => { const b = el(`<button class="quick"><span class="e">${q.e}</span><span class="t">${q.t}</span></button>`); b.addEventListener("click", () => ask(q.t)); quicks.appendChild(b); });
   v.querySelector("#voice").addEventListener("click", () => v.querySelector("#q").focus());
   v.querySelector("#send").addEventListener("click", () => ask());
   v.querySelector("#q").addEventListener("keydown", (e) => { if (e.key === "Enter") ask(); });
+  // 이미 진행 중인 대화가 있으면(탭 전환 후 복귀) 대화 내용을 유지 렌더
+  if (chatLog.length) { document.querySelector("#emptyState").style.display = "none"; chatLog.forEach((node) => document.querySelector("#thread").appendChild(node)); scrollChatToEnd(); }
+}
+
+// 탭 전환에도 대화가 유지되도록 렌더된 메시지 노드를 보관
+let chatLog = [];
+function scrollChatToEnd() {
+  const t = document.querySelector("#thread");
+  if (t && t.lastElementChild) setTimeout(() => t.lastElementChild.scrollIntoView({ behavior: "smooth", block: "end" }), 60);
 }
 
 async function ask(text) {
   const input = document.querySelector("#q");
-  const q = (text ?? input.value).trim(); if (!q) return;
+  const q = (text ?? (input ? input.value : "")).trim(); if (!q) return;
   const thread = document.querySelector("#thread");
   if (input) input.value = "";
-  const loading = el(`<div class="mt"><div class="user-bubble">${esc(q)}</div><div class="card answer"><div class="muted">답변을 준비하고 있어요…</div></div></div>`);
-  thread.prepend(loading);
+  // 첫 메시지에서 홈(빈 상태) 숨기고 채팅 모드로 전환
+  const emptyState = document.querySelector("#emptyState");
+  if (emptyState) emptyState.style.display = "none";
+  // 사용자 말풍선을 먼저 아래에 붙이고 스크롤(채팅처럼 순서대로)
+  const userMsg = el(`<div class="msg-row"><div class="user-bubble">${esc(q)}</div></div>`);
+  thread.appendChild(userMsg); chatLog.push(userMsg);
+  const loading = el(`<div class="msg-row"><div class="card answer"><div class="muted">답변을 준비하고 있어요…</div></div></div>`);
+  thread.appendChild(loading);
+  scrollChatToEnd();
   try {
     if (!conversationId) conversationId = (await api("/v1/conversations", { method: "POST", body: "{}" })).conversation_id;
     const r = await api(`/v1/conversations/${conversationId}/messages`, { method: "POST", body: JSON.stringify({ text: q }) });
     loading.remove();
-    thread.prepend(answerBlock(q, r));
+    const block = answerBlock(r);
+    thread.appendChild(block); chatLog.push(block);
+    scrollChatToEnd();
   } catch (err) {
     loading.remove();
-    thread.prepend(el(`<div class="mt"><div class="user-bubble">${esc(q)}</div><div class="card"><span class="pill reversed">오류</span><div class="mt">${esc(err.title || "잠시 후 다시 시도해주세요.")}</div></div></div>`));
+    const errNode = el(`<div class="msg-row"><div class="card"><span class="pill reversed">오류</span><div class="mt">${esc(err.title || "잠시 후 다시 시도해주세요.")}</div></div></div>`);
+    thread.appendChild(errNode); chatLog.push(errNode);
+    scrollChatToEnd();
   }
 }
 
-function answerBlock(question, r) {
+function answerBlock(r) {
   const a = r.answer;
   const sections = a.sections.map((s) => `<div class="section"><div class="h">${esc(s.title)}</div><div>${esc(s.body)}</div></div>`).join("");
   const block = el(`
-    <div class="mt">
-      <div class="user-bubble">${esc(question)}</div>
+    <div class="msg-row">
       <div class="card answer">
         <div class="ai-badge-row"><span class="ai-badge">AI</span><span class="muted" style="font-weight:700">AI 답변</span></div>
         <div class="summary">${esc(a.summary)}</div>
@@ -119,8 +140,11 @@ function answerBlock(question, r) {
       <div id="ad"></div>
     </div>`);
   const ad = block.querySelector("#ad");
-  if (r.commercial) ad.appendChild(offerCard(r.commercial, r.answerSnapshotId));
-  else ad.appendChild(el(`<div class="disclose">이 질문과 관련해 조건을 만족하는 광고·제휴 혜택이 없어 표시하지 않았어요. (답변은 광고와 무관하게 완결됩니다.)</div>`));
+  const benefits = (r.matched && r.matched.benefits) || (r.commercial ? [r.commercial] : []);
+  const missions = (r.matched && r.matched.missions) || [];
+  if (benefits.length) { ad.appendChild(el(`<div class="quick-head" style="margin-top:6px">🛍️ 관련 혜택</div>`)); benefits.forEach((o) => ad.appendChild(offerCard(o, r.answerSnapshotId))); }
+  if (missions.length) { ad.appendChild(el(`<div class="quick-head">🎯 함께 하면 좋은 미션</div>`)); missions.forEach((o) => ad.appendChild(offerCard(o, r.answerSnapshotId))); }
+  if (!benefits.length && !missions.length) ad.appendChild(el(`<div class="disclose">이 질문과 딱 맞는 광고·제휴 혜택이 없어 표시하지 않았어요. (답변은 광고와 무관하게 완결됩니다.)</div>`));
   return block;
 }
 

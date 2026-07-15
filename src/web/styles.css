@@ -93,6 +93,13 @@ button, .btn {
 .quick .e { font-size:1.4rem; } .quick .t { font-size:1.05rem; font-weight:700; color:var(--ink); }
 .quick-head { color:var(--muted); font-weight:800; margin:22px 0 4px; }
 
+/* 채팅 레이아웃 — 메시지는 위에서 아래로 쌓이고, 입력창은 하단(탭바 위)에 고정 */
+.ai-chat { display:flex; flex-direction:column; min-height:calc(100vh - 66px - 66px); }
+#thread { display:flex; flex-direction:column; padding-bottom:8px; }
+.msg-row { margin-top:14px; }
+.msg-row:first-child { margin-top:4px; }
+.chat-input { position:sticky; bottom:74px; margin-top:auto; box-shadow:0 -8px 16px var(--bg); }
+
 /* 대화 */
 .user-bubble { align-self:flex-end; background:var(--brand); color:#fff; border-radius:20px; border-bottom-right-radius:6px; padding:13px 16px; font-weight:700; font-size:1.05rem; max-width:88%; margin:0 0 12px auto; width:fit-content; }
 .answer .ai-badge-row { display:flex; align-items:center; gap:8px; margin-bottom:10px; }
