@@ -113,7 +113,16 @@ const RealApi = {
     });
   },
   async setConsent(purpose: string, granted: boolean) {
-    return req(`/v1/consents/${purpose}`, { method: "PUT", body: JSON.stringify({ granted }) });
+    return req<{ purpose: string; granted: boolean }>(`/v1/consents/${purpose}`, { method: "PUT", body: JSON.stringify({ granted }) });
+  },
+  async consents() {
+    return req<{ consents: { purpose: string; granted: number; policy_version: string; updated_at: string }[] }>("/v1/consents");
+  },
+  async logout() {
+    TOKEN = null;
+    sessionPromise = null;
+    await AsyncStorage.multiRemove(["hyeaek_token", "hyeaek_device"]);
+    return { ok: true };
   },
   async submitLead(offerSnapshotId: string, lead: { name: string; phone: string; address: string; preferred_time?: string }) {
     return req<{ lead_id: string; click_id: string; advertiser_name: string }>(`/v1/offers/${offerSnapshotId}/lead`, {

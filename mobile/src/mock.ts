@@ -153,7 +153,16 @@ export const MockApi = {
     if (!state.claimed.has(milestone)) { state.claimed.add(milestone); addReward("걷기 광고 보상", "cashwalk_ad", REWARD_PER_MS, true); }
     return { rewardAmount: REWARD_PER_MS, status: cashwalkStatus() };
   },
-  async setConsent(_p: string, _g: boolean) { return { ok: true }; },
+  async setConsent(purpose: string, granted: boolean) { return { purpose, granted }; },
+  async consents() {
+    return { consents: [
+      { purpose: "service", granted: 1, policy_version: "v1.0", updated_at: new Date().toISOString() },
+      { purpose: "third_party", granted: 0, policy_version: "v1.0", updated_at: new Date().toISOString() },
+      { purpose: "personalized_ads", granted: 0, policy_version: "v1.0", updated_at: new Date().toISOString() },
+      { purpose: "marketing", granted: 0, policy_version: "v1.0", updated_at: new Date().toISOString() },
+    ] };
+  },
+  async logout() { return { ok: true }; },
   async submitLead(_s: string, _lead: any) {
     addReward("렌탈 보상", "rental_cpa", 40000, false);
     return { lead_id: rid("led"), click_id: rid("clk"), advertiser_name: "○○웰스" };

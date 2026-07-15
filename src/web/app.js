@@ -48,7 +48,7 @@ document.querySelector("#tabbar").addEventListener("click", (e) => {
 
 function render() {
   refreshWallet();
-  ({ ai: renderAI, shop: renderShop, mission: renderMission, walk: renderWalk, reward: renderReward })[state.tab]();
+  ({ ai: renderAI, shop: renderShop, mission: renderMission, walk: renderWalk, reward: renderReward, settings: renderSettings })[state.tab]();
 }
 
 // ---------- AI 도움 ----------
@@ -399,6 +399,68 @@ async function exchange(available) {
 }
 
 function sourceLabel(s) { return ({ shopping_cps: "쇼핑 적립", offerwall_cpa: "미션 보상", cashwalk_ad: "걷기 보상", rental_cpa: "렌탈 보상" })[s] || s; }
+
+// ---------- 설정 ----------
+const OPTIONAL_CONSENTS = [
+  { purpose: "third_party", title: "개인정보 제3자 제공", desc: "렌탈 등 상담 신청 시 이름·연락처·주소를 제휴사에 전달합니다. 끄면 상담 신청이 제한됩니다." },
+  { purpose: "personalized_ads", title: "맞춤 혜택 추천", desc: "대화 맥락에 맞는 혜택·미션을 추천받습니다. 끄면 일반 안내만 제공됩니다." },
+  { purpose: "marketing", title: "혜택·이벤트 알림", desc: "새로운 혜택·이벤트 소식을 받습니다." },
+];
+const DOC_TERMS = "제1조(목적) 본 약관은 혜택AI(이하 \"서비스\")의 이용 조건과 절차를 규정합니다.\n제2조(서비스) AI 대화 안내와 함께, 필요가 있을 때 검수된 제휴 혜택·미션·렌탈·걷기 리워드를 연결합니다. 답변은 광고와 무관하게 완결됩니다.\n제3조(리워드) 적립 보상은 제휴사의 유효 전환 확인 후 '사용 가능'으로 확정되며, 취소·반품 시 회수될 수 있습니다.\n제4조(유의) 가격·조건 등 변동 정보는 진행 전 원문에서 다시 확인해야 합니다.\n※ 본 문안은 데모용 예시이며, 실제 출시 전 법률 검토를 거쳐 확정됩니다.";
+const DOC_PRIVACY = "1. 수집 항목: 기기 식별자, 대화 내용, 걸음수(위치 미수집). 상담 신청 시에만 이름·연락처·주소를 수집합니다.\n2. 이용 목적: 서비스 제공, 리워드 정산, 맞춤 혜택 추천(동의 시).\n3. 보관·파기: 상담 정보는 상담 종료 후 파기하며, 연락처·주소는 암호화 저장합니다.\n4. 이용자 권리: 동의는 설정에서 언제든 철회할 수 있고, 열람·삭제를 요청할 수 있습니다.\n5. 제3자 제공: 이용자가 신청한 경우에 한해 동의한 항목만 해당 제휴사에 제공합니다.\n※ 본 문안은 데모용 예시이며, 실제 출시 전 개인정보 영향평가·법률 검토를 거쳐 확정됩니다.";
+
+async function renderSettings() {
+  const v = document.querySelector("#view");
+  v.innerHTML = `<h2 class="title">설정</h2>`;
+  let granted = {};
+  try { const r = await api("/v1/consents"); r.consents.forEach((c) => { granted[c.purpose] = !!c.granted; }); } catch { /* noop */ }
+
+  v.appendChild(el(`<div class="set-sec">개인정보·동의 관리</div>`));
+  const card = el(`<div class="card set-card"></div>`);
+  OPTIONAL_CONSENTS.forEach((c, i) => {
+    const row = el(`<div class="set-consent${i < OPTIONAL_CONSENTS.length - 1 ? " rdiv" : ""}">
+      <div class="tx"><div class="ct">${esc(c.title)}</div><div class="cd">${esc(c.desc)}</div></div>
+      <button class="toggle ${granted[c.purpose] ? "on" : ""}" role="switch" aria-checked="${!!granted[c.purpose]}"><span class="knob"></span></button>
+    </div>`);
+    const btn = row.querySelector(".toggle");
+    btn.addEventListener("click", async () => {
+      const next = !btn.classList.contains("on");
+      btn.classList.toggle("on", next); btn.setAttribute("aria-checked", String(next));
+      try { await api(`/v1/consents/${c.purpose}`, { method: "PUT", body: JSON.stringify({ granted: next }) }); }
+      catch { btn.classList.toggle("on", !next); toast("잠시 후 다시 시도해주세요."); }
+    });
+    card.appendChild(row);
+  });
+  v.appendChild(card);
+  v.appendChild(el(`<div class="sub" style="margin-top:8px">동의는 언제든 켜고 끌 수 있어요. 끄면 즉시 반영됩니다.</div>`));
+
+  v.appendChild(el(`<div class="set-sec">약관·정책</div>`));
+  const docs = el(`<div class="card set-card">
+    <button class="set-link rdiv" id="t-terms">이용약관 <span class="chev">›</span></button>
+    <button class="set-link" id="t-privacy">개인정보처리방침 <span class="chev">›</span></button>
+  </div>`);
+  docs.querySelector("#t-terms").addEventListener("click", () => openDoc("이용약관", DOC_TERMS));
+  docs.querySelector("#t-privacy").addEventListener("click", () => openDoc("개인정보처리방침", DOC_PRIVACY));
+  v.appendChild(docs);
+
+  v.appendChild(el(`<div class="set-sec">계정</div>`));
+  const acct = el(`<div class="card set-card"><button class="set-link danger" id="logout">로그아웃 <span class="chev">›</span></button></div>`);
+  acct.querySelector("#logout").addEventListener("click", () => {
+    if (!confirm("로그아웃하면 이 기기의 게스트 세션이 초기화돼요. 계속할까요?")) return;
+    TOKEN = ""; localStorage.removeItem("hyeaek_token"); localStorage.removeItem("hyeaek_device");
+    toast("로그아웃했어요. 새 세션으로 다시 시작합니다.");
+    ensureSession().then(render).catch(() => render());
+  });
+  v.appendChild(acct);
+  v.appendChild(el(`<div class="app-info">혜택AI · 버전 0.1.0</div>`));
+}
+
+function openDoc(title, body) {
+  const m = el(`<div class="modal-bg"><div class="lead-modal"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><h3 style="margin:0">${esc(title)}</h3><button class="btn" id="dc" style="width:auto;min-height:auto;background:none;color:var(--brand);padding:6px 10px">닫기</button></div><div style="max-height:56vh;overflow:auto;white-space:pre-line;line-height:1.7;font-size:.95rem">${esc(body)}</div></div></div>`);
+  document.body.appendChild(m);
+  m.querySelector("#dc").addEventListener("click", () => m.remove());
+  m.addEventListener("click", (e) => { if (e.target === m) m.remove(); });
+}
 
 // 세션 보장 후 첫 렌더
 ensureSession().then(render).catch(() => render());

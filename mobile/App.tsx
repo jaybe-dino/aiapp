@@ -11,10 +11,11 @@ import ShopScreen from "./src/screens/ShopScreen";
 import MissionScreen from "./src/screens/MissionScreen";
 import WalkScreen from "./src/screens/WalkScreen";
 import RewardScreen from "./src/screens/RewardScreen";
+import SettingsScreen from "./src/screens/SettingsScreen";
 
 const Tab = createBottomTabNavigator();
 
-const ICON: Record<string, string> = { AI: "💬", 혜택: "🛍️", 미션: "🎯", 걷기: "👟", 내보상: "💰" };
+const ICON: Record<string, string> = { AI: "💬", 혜택: "🛍️", 미션: "🎯", 걷기: "👟", 내보상: "💰", 설정: "⚙️" };
 
 function DemoBanner() {
   const [demo, setDemo] = useState(false);
@@ -55,6 +56,7 @@ export default function App() {
           <Tab.Screen name="미션" component={MissionScreen} />
           <Tab.Screen name="걷기" component={WalkScreen} />
           <Tab.Screen name="내보상" component={RewardScreen} options={{ title: "내 보상" }} />
+          <Tab.Screen name="설정" component={SettingsScreen} />
         </Tab.Navigator>
       </NavigationContainer>
     </SafeAreaProvider>
