@@ -19,6 +19,7 @@ type Msg =
   | {
       role: "ai"; summary: string; sections: { title: string; body: string }[]; uncertainty: string;
       needLevel: NeedLevel; benefits: Offer[]; missions: Offer[]; rewardNudge: RewardNudge; answerSnapshotId: string;
+      retry?: string; // 실패 시 재시도할 질문
     };
 
 const QUICK = [
@@ -70,7 +71,7 @@ export default function AIScreen() {
       ]);
     } catch {
       ease();
-      setMessages((m) => [...m.filter((x) => x.role !== "loading"), { role: "ai", summary: "잠시 후 다시 시도해주세요.", sections: [], uncertainty: "", needLevel: "none", benefits: [], missions: [], rewardNudge: null, answerSnapshotId: "" }]);
+      setMessages((m) => [...m.filter((x) => x.role !== "loading"), { role: "ai", summary: "연결이 잠시 불안정해요.", sections: [], uncertainty: "", needLevel: "none", benefits: [], missions: [], rewardNudge: null, answerSnapshotId: "", retry: question }]);
     } finally {
       setBusy(false);
       scrollToEnd();
@@ -110,7 +111,7 @@ export default function AIScreen() {
             </View>
           </View>
         ) : (
-          messages.map((m, i) => <MessageView key={i} m={m} goTab={goTab} />)
+          messages.map((m, i) => <MessageView key={i} m={m} goTab={goTab} onRetry={ask} />)
         )}
       </ScrollView>
 
@@ -126,11 +127,11 @@ export default function AIScreen() {
   );
 }
 
-function MessageView({ m, goTab }: { m: Msg; goTab: (n: string) => void }) {
+function MessageView({ m, goTab, onRetry }: { m: Msg; goTab: (n: string) => void; onRetry: (q: string) => void }) {
   if (m.role === "user") return <View style={s.userBubble}><Text style={s.userText}>{m.text}</Text></View>;
   if (m.role === "loading") return <View style={s.aiCard}><TypingDots /></View>;
 
-  const failed = m.summary === "잠시 후 다시 시도해주세요.";
+  const failed = !!m.retry;
   return (
     <View style={{ marginBottom: 6 }}>
       <View style={s.aiCard}>
@@ -143,6 +144,11 @@ function MessageView({ m, goTab }: { m: Msg; goTab: (n: string) => void }) {
           </View>
         ))}
         {!!m.uncertainty && <View style={s.uncertain}><Text style={s.uncertainText}>⚠️ {m.uncertainty}</Text></View>}
+        {failed && (
+          <TouchableOpacity style={s.retryBtn} onPress={() => onRetry(m.retry!)} activeOpacity={0.85}>
+            <Text style={s.retryText}>↻ 다시 시도</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* ready: 전체 카드 즉시 노출 */}
@@ -249,6 +255,8 @@ const s = StyleSheet.create({
   secBody: { color: T.ink, fontSize: 15, lineHeight: 22 },
   uncertain: { backgroundColor: "#fbf6ea", borderWidth: 1, borderColor: "#eedec0", borderRadius: 13, padding: 12, marginTop: 12 },
   uncertainText: { color: "#7a5b1e", fontSize: 13.5, lineHeight: 20 },
+  retryBtn: { marginTop: 12, alignSelf: "flex-start", backgroundColor: T.brandSoft, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 10 },
+  retryText: { color: T.brand, fontWeight: "800", fontSize: 15 },
 
   soft: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: T.brandSoft, borderRadius: 18, borderWidth: 1, borderColor: "#cfe4da", paddingVertical: 14, paddingHorizontal: 15, marginBottom: 12 },
   softEmoji: { fontSize: 20 },

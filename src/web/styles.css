@@ -203,3 +203,4 @@ button, .btn {
 .set-link.danger { color: var(--reversed); }
 .set-link .chev { color: var(--muted); font-weight: 300; font-size: 1.3rem; }
 .app-info { text-align: center; color: var(--muted); font-size: .85rem; margin-top: 28px; }
+.retry-btn { background: var(--brand-soft); color: var(--brand); border-radius: 12px; padding: 10px 16px; min-height: auto; font-weight: 800; font-size: .95rem; }

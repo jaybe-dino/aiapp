@@ -120,7 +120,8 @@ async function ask(text) {
     scrollChatToEnd();
   } catch (err) {
     loading.remove();
-    const errNode = el(`<div class="msg-row"><div class="card"><span class="pill reversed">오류</span><div class="mt">${esc(err.title || "잠시 후 다시 시도해주세요.")}</div></div></div>`);
+    const errNode = el(`<div class="msg-row"><div class="card answer"><div>${esc(err.title || "연결이 잠시 불안정해요.")}</div><button class="retry-btn mt">↻ 다시 시도</button></div></div>`);
+    errNode.querySelector(".retry-btn").addEventListener("click", () => { errNode.remove(); const idx = chatLog.indexOf(errNode); if (idx >= 0) chatLog.splice(idx, 1); ask(q); });
     thread.appendChild(errNode); chatLog.push(errNode);
     scrollChatToEnd();
   }
