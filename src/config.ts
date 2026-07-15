@@ -26,6 +26,8 @@ export const config = {
   couponProviderMode: (process.env.COUPON_PROVIDER_MODE ?? "success") as "success" | "fail" | "unknown",
   // 세션 토큰 서명 비밀. 운영에선 반드시 환경변수로 주입.
   sessionSecret: process.env.SESSION_SECRET ?? "dev-session-secret-change-me",
+  // 개인정보(리드 연락처·주소) 필드 암호화 키. 운영에선 KMS 관리.
+  piiEncKey: process.env.PII_ENC_KEY ?? "dev-pii-encryption-key-change-me",
   sessionTtlSec: Number(process.env.SESSION_TTL_SEC ?? 60 * 60 * 24 * 30), // 30일
   // 개발 편의: x-user-id 헤더 인증 폴백 허용(운영에선 자동 비활성).
   allowHeaderAuth: (process.env.ALLOW_HEADER_AUTH ?? (nodeEnv !== "production" ? "true" : "false")) === "true",

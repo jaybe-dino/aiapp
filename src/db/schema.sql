@@ -115,6 +115,24 @@ CREATE TABLE IF NOT EXISTS offer_versions (
   effective_at      TEXT NOT NULL
 );
 
+-- 렌탈 리드(설치 상담 신청). 연락처·주소는 암호화 저장(개인정보 최소·목적제한).
+CREATE TABLE IF NOT EXISTS rental_leads (
+  lead_id           TEXT PRIMARY KEY,
+  user_id           TEXT NOT NULL,
+  offer_id          TEXT NOT NULL,
+  offer_snapshot_id TEXT NOT NULL,
+  advertiser_name   TEXT NOT NULL,
+  click_id          TEXT,
+  name_enc          TEXT NOT NULL,        -- AES-GCM 암호화
+  phone_enc         TEXT NOT NULL,
+  address_enc       TEXT NOT NULL,
+  preferred_time    TEXT,
+  consent_purpose   TEXT NOT NULL,        -- third_party
+  data_sharing      TEXT NOT NULL,        -- 노출 당시 고지된 전달 항목
+  status            TEXT NOT NULL,        -- submitted|contacted|installed|canceled
+  created_at        TEXT NOT NULL
+);
+
 -- 노출/클릭 로그 (기획안 13장)
 CREATE TABLE IF NOT EXISTS clicks (
   click_id          TEXT PRIMARY KEY,       -- 추측 불가능, 공급사별 서명

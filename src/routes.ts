@@ -18,6 +18,7 @@ import {
   getOfferSnapshot,
   createClick,
 } from "./modules/commercial/commercial.js";
+import { submitRentalLead, listLeadsForUser } from "./modules/commercial/lead.js";
 import { ingestConversion } from "./modules/attribution/attribution.js";
 import { userWallet, assertLedgerBalanced } from "./modules/ledger/ledger.js";
 import { listRewards, getReward, rewardTimeline, approve, makeAvailable, reverse } from "./modules/reward/reward.js";
@@ -155,6 +156,20 @@ export function registerRoutes(app: FastifyInstance) {
       return { click_id: res.clickId, redirect_url: res.redirectUrl, attribution_expires_at: res.expiresAt };
     });
   });
+
+  // --- 렌탈 리드(설치 상담 신청) -------------------------------------
+  app.post("/v1/offers/:snapshotId/lead", async (req: FastifyRequest<{ Params: { snapshotId: string }; Body: { name: string; phone: string; address: string; preferred_time?: string } }>) => {
+    const userId = uid(req);
+    const key = requireIdem(req);
+    return withIdempotency("lead", key, { snap: req.params.snapshotId, ...req.body }, () => {
+      const b = req.body ?? ({} as any);
+      const r = submitRentalLead(userId, req.params.snapshotId, {
+        name: b.name, phone: b.phone, address: b.address, preferredTime: b.preferred_time,
+      });
+      return { lead_id: r.leadId, click_id: r.clickId, advertiser_name: r.advertiserName };
+    });
+  });
+  app.get("/v1/leads", async (req) => ({ leads: listLeadsForUser(uid(req)) }));
 
   // --- 지갑/보상 ------------------------------------------------------
   app.get("/v1/wallet", async (req) => {

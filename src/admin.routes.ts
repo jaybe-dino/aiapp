@@ -98,6 +98,9 @@ export function registerAdminRoutes(app: FastifyInstance) {
   app.get("/admin/v1/users", async (req) => { requireAdmin(req); return { users: admin.listUsers() }; });
   app.get("/admin/v1/users/:id", async (req: FastifyRequest<{ Params: { id: string } }>) => { requireAdmin(req); return admin.userDetail(req.params.id); });
 
+  // 렌탈 리드(마스킹 조회). 실 전달·복호화는 별도 권한·감사 필요(로드맵).
+  app.get("/admin/v1/leads", async (req) => { requireAdmin(req, ["ops", "reviewer", "finance"]); return { leads: admin.listLeadsMasked() }; });
+
   // 원장/감사
   app.get("/admin/v1/ledger", async (req) => { requireAdmin(req); return { accounts: admin.ledgerAccounts() }; });
   app.get("/admin/v1/audit", async (req) => { requireAdmin(req); return { audit: admin.listAudit() }; });

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from "react-native";
 import { T, won } from "../theme";
 import { Api, OfferCard as Offer } from "../api";
+import RentalLeadModal from "./RentalLeadModal";
 
 function supplierFor(cat: string): { supplier: string; source: string } {
   if (cat === "survey") return { supplier: "sup_offerwall", source: "offerwall_cpa" };
@@ -11,6 +12,7 @@ function supplierFor(cat: string): { supplier: string; source: string } {
 
 export default function OfferCard({ offer, answerSnapshotId, onConverted }: { offer: Offer; answerSnapshotId?: string | null; onConverted?: () => void }) {
   const [busy, setBusy] = useState(false);
+  const [leadOpen, setLeadOpen] = useState(false);
   const rental = offer.isRental;
 
   async function clickAndConvert() {
@@ -103,9 +105,13 @@ export default function OfferCard({ offer, answerSnapshotId, onConverted }: { of
         <Chip warn={offer.dataSharing !== "없음"} text={offer.dataSharing === "없음" ? "연락처 미전달" : "연락처 전달"} />
       </View>
 
-      <TouchableOpacity style={s.btn} onPress={goExternal} disabled={busy} activeOpacity={0.85}>
-        {busy ? <ActivityIndicator color="#fff" /> : <Text style={s.btnText}>{rental ? "제휴처에서 상담 신청하기" : "제휴처에서 조건을 확인합니다"}</Text>}
+      <TouchableOpacity style={s.btn} onPress={rental ? () => setLeadOpen(true) : goExternal} disabled={busy} activeOpacity={0.85}>
+        {busy ? <ActivityIndicator color="#fff" /> : <Text style={s.btnText}>{rental ? "설치 상담 신청하기" : "제휴처에서 조건을 확인합니다"}</Text>}
       </TouchableOpacity>
+
+      {rental && (
+        <RentalLeadModal offer={offer} visible={leadOpen} onClose={() => setLeadOpen(false)} onDone={() => { setLeadOpen(false); onConverted?.(); }} />
+      )}
     </View>
   );
 }

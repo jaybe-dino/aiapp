@@ -263,6 +263,9 @@ export function userDetail(userId: string) {
   };
 }
 
+// ---------- 렌탈 리드(마스킹) ----------
+export { listLeadsMasked } from "../commercial/lead.js";
+
 // ---------- 감사 로그 ----------
 export function listAudit() {
   return db.prepare("SELECT actor, action, target, detail, created_at FROM audit_log ORDER BY created_at DESC LIMIT 200").all();

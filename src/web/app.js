@@ -152,10 +152,46 @@ function offerCard(o, answerSnapshotId) {
       <div class="muted" style="margin-bottom:8px">${esc(o.recommendationReason)}</div>
       <div class="inset">${inset}</div>
       <div class="chips">${chips}</div>
-      <button class="btn btn-primary mt">${rental ? "제휴처에서 상담 신청하기" : "제휴처에서 조건을 확인합니다"}</button>
+      <button class="btn btn-primary mt">${rental ? "설치 상담 신청하기" : "제휴처에서 조건을 확인합니다"}</button>
     </div>`);
-  c.querySelector("button").addEventListener("click", () => goExternal(o, answerSnapshotId));
+  c.querySelector("button").addEventListener("click", () => (rental ? openLeadForm(o) : goExternal(o, answerSnapshotId)));
   return c;
+}
+
+// 렌탈 설치 상담 신청 폼(모달)
+function openLeadForm(o) {
+  const m = el(`<div class="modal-bg"><div class="lead-modal">
+    <h3 style="margin:0 0 4px">설치 상담 신청</h3>
+    <div class="muted" style="margin-bottom:14px">${esc(o.title)} · ${esc(o.advertiserName)}</div>
+    <label class="fl">이름</label><input id="ln" placeholder="성함" />
+    <label class="fl">연락처</label><input id="lp" placeholder="010-0000-0000" inputmode="tel" />
+    <label class="fl">설치 주소</label><input id="la" placeholder="설치할 주소" />
+    <label class="fl">희망 상담 시간 (선택)</label><input id="lt" placeholder="예: 평일 오후" />
+    <div class="lead-disclose">
+      <b>개인정보 제3자 제공 안내</b><br>
+      · 제공받는 자: ${esc(o.advertiserName)}<br>· 제공 항목: ${esc(o.dataSharing)}<br>· 목적: 렌탈 설치 상담·계약<br>
+      · 보유·이용기간: 상담 종료 후 파기<br>· 월 ${won(o.monthlyFee)} · 약정 ${o.contractMonths}개월 · 의무 ${o.mandatoryMonths}개월 · 자동결제 있음
+    </div>
+    <label class="lead-check"><input type="checkbox" id="lc" /> 위 개인정보 제3자 제공에 동의합니다 (필수)</label>
+    <button class="btn btn-primary" id="lsubmit">상담 신청하기</button>
+    <button class="btn" id="lcancel" style="width:100%;background:none;color:var(--muted)">닫기</button>
+  </div></div>`);
+  document.body.appendChild(m);
+  m.querySelector("#lcancel").addEventListener("click", () => m.remove());
+  m.querySelector("#lsubmit").addEventListener("click", async () => {
+    const name = m.querySelector("#ln").value.trim(), phone = m.querySelector("#lp").value.trim(), address = m.querySelector("#la").value.trim();
+    const time = m.querySelector("#lt").value.trim(), agree = m.querySelector("#lc").checked;
+    if (!name || !phone || !address) return toast("이름·연락처·설치 주소를 입력해주세요.");
+    if (!agree) return toast("개인정보 제3자 제공 동의가 필요해요.");
+    try {
+      await api("/v1/consents/third_party", { method: "PUT", body: JSON.stringify({ granted: true }) });
+      const r = await api(`/v1/offers/${o.offerSnapshotId}/lead`, { method: "POST", headers: { "Idempotency-Key": idem() }, body: JSON.stringify({ name, phone, address, preferred_time: time || undefined }) });
+      await api(`/v1/dev/simulate-conversion`, { method: "POST", body: JSON.stringify({ supplier: "sup_rental", source: "rental_cpa", click_id: r.click_id, gross_amount: o.totalCost || 0 }) }).catch(() => {});
+      m.remove();
+      toast(`상담 신청 완료 · ${o.advertiserName}에서 연락 예정`);
+      refreshWallet();
+    } catch (e) { toast(e.title || "신청 실패"); }
+  });
 }
 
 async function goExternal(o, answerSnapshotId) {

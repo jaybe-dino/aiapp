@@ -108,6 +108,13 @@ export const Api = {
   async setConsent(purpose: string, granted: boolean) {
     return req(`/v1/consents/${purpose}`, { method: "PUT", body: JSON.stringify({ granted }) });
   },
+  async submitLead(offerSnapshotId: string, lead: { name: string; phone: string; address: string; preferred_time?: string }) {
+    return req<{ lead_id: string; click_id: string; advertiser_name: string }>(`/v1/offers/${offerSnapshotId}/lead`, {
+      method: "POST",
+      idem: true,
+      body: JSON.stringify(lead),
+    });
+  },
   async wallet() {
     return req<{ available: number; pending: number; used: number }>("/v1/wallet");
   },
