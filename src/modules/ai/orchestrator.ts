@@ -6,6 +6,7 @@ import { id, now, sha256 } from "../../lib/id.js";
 import { classifyInput } from "./safety.js";
 import { generateAnswer, selectRecommendations } from "./provider.js";
 import { chatCandidateBriefs, cardsFromPicks, type IntentContext, type OfferCard } from "../commercial/commercial.js";
+import { logEvent } from "../analytics/events.js";
 
 export interface TurnResult {
   answerSnapshotId: string;
@@ -32,8 +33,8 @@ export async function handleTurn(p: { conversationId: string; userId: string; qu
   const answerJson = JSON.stringify(answer);
   const contentHash = sha256(answerJson);
   db.prepare(
-    `INSERT INTO answers (answer_snapshot_id, conversation_id, user_id, question, answer_json, content_hash, risk_tier, commercial_allowed, finalized_at, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    `INSERT INTO answers (answer_snapshot_id, conversation_id, user_id, question, answer_json, content_hash, risk_tier, commercial_allowed, need_level, reward_nudge, finalized_at, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     answerSnapshotId,
     p.conversationId,
@@ -43,9 +44,18 @@ export async function handleTurn(p: { conversationId: string; userId: string; qu
     contentHash,
     policy.riskTier,
     policy.commercialAllowed ? 1 : 0,
+    answer.need_level,
+    answer.reward_nudge,
     finalizedAt,
     finalizedAt
   );
+  // KPI: 니즈 게이팅 결과·카테고리를 이벤트로(큐레이션 오탐 튜닝의 근거).
+  logEvent("answer_finalized", p.userId, {
+    need_level: answer.need_level,
+    reward_nudge: answer.reward_nudge,
+    category: answer.suggested_category,
+    risk_tier: policy.riskTier,
+  });
 
   // 5) 답변 확정 '후'에만 제한된 의도 문맥 생성.
   //    원문/민감정보는 넘기지 않고 카테고리·지역·허용여부만 전달(기획안 12.2).
@@ -68,6 +78,15 @@ export async function handleTurn(p: { conversationId: string; userId: string; qu
     matched = cardsFromPicks(picks);
   }
   const commercial = matched.benefits[0] ?? null; // 하위호환: 단일 오퍼 필드
+
+  // KPI: 실제로 추천이 노출됐는지(큐레이터가 고른 개수). 니즈는 있었는데 0개면 커버리지 부족 신호.
+  if (answer.need_level !== "none") {
+    logEvent("reco_shown", p.userId, {
+      need_level: answer.need_level,
+      benefits: matched.benefits.length,
+      missions: matched.missions.length,
+    });
+  }
 
   return {
     answerSnapshotId,

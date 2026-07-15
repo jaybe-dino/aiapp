@@ -16,6 +16,14 @@ db.pragma("foreign_keys = ON");
 export function applySchema() {
   const sql = fs.readFileSync(path.join(__dirname, "schema.sql"), "utf8");
   db.exec(sql);
+  migrate();
+}
+
+/** 기존 DB에 누락된 컬럼을 idempotent하게 추가(CREATE TABLE IF NOT EXISTS로는 컬럼 증분이 안 됨). */
+function migrate() {
+  const cols = (db.prepare("PRAGMA table_info(answers)").all() as { name: string }[]).map((c) => c.name);
+  if (!cols.includes("need_level")) db.exec("ALTER TABLE answers ADD COLUMN need_level TEXT");
+  if (!cols.includes("reward_nudge")) db.exec("ALTER TABLE answers ADD COLUMN reward_nudge TEXT");
 }
 
 /**

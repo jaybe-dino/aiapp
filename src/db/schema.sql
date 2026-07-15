@@ -68,9 +68,21 @@ CREATE TABLE IF NOT EXISTS answers (
   content_hash       TEXT NOT NULL,        -- 답변 불변성 증적
   risk_tier          TEXT NOT NULL,
   commercial_allowed INTEGER NOT NULL,     -- 안전 판정 결과(고위험이면 0)
+  need_level         TEXT,                 -- 니즈 게이팅 결과(none|exploring|ready) — 큐레이션 튜닝용
+  reward_nudge       TEXT,                 -- 리워드 넛지(walk|mission|null)
   finalized_at       TEXT NOT NULL,        -- 이 시각 이전에는 오퍼 조회 금지(불변조건 1)
   created_at         TEXT NOT NULL
 );
+
+-- 행동 이벤트 로그(KPI 퍼널). 재무 원장과 분리된 분석용 append-only 로그.
+CREATE TABLE IF NOT EXISTS events (
+  event_id   TEXT PRIMARY KEY,
+  user_id    TEXT,
+  name       TEXT NOT NULL,   -- answer_finalized | offer_click | conversion | milestone_claim | payout_requested ...
+  props_json TEXT,            -- 이벤트별 속성(need_level, category, amount 등)
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_events_name_time ON events(name, created_at);
 
 -- =========================================================================
 -- Commercial: 오퍼 카탈로그 (기획안 11장) — 조건은 불변 스냅샷으로 보존

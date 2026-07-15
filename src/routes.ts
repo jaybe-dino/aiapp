@@ -25,6 +25,7 @@ import { listRewards, getReward, rewardTimeline, approve, makeAvailable, reverse
 import { requestPayout, getPayout, listPayouts } from "./modules/payout/payout.js";
 import { syncSteps, claimMilestone, todayStatus } from "./modules/cashwalk/cashwalk.js";
 import { guestLogin, phoneStart, phoneVerify, getUser, listConsents, setConsent, hasConsent } from "./modules/auth/auth.js";
+import { logEvent, funnelSummary } from "./modules/analytics/events.js";
 
 /** 인증된 사용자 ID를 해석한다. 없으면 401. */
 function uid(req: FastifyRequest): string {
@@ -153,6 +154,7 @@ export function registerRoutes(app: FastifyInstance) {
     return withIdempotency("click", key, req.body, () => {
       const res = createClick({ userId, offerSnapshotId: req.params.snapshotId, answerSnapshotId: req.body?.answer_snapshot_id ?? null });
       if (!res) throw new ProblemError({ status: 404, code: "NOT_FOUND", title: "혜택을 찾을 수 없습니다." });
+      logEvent("offer_click", userId, { offer_snapshot_id: req.params.snapshotId, from_answer: !!req.body?.answer_snapshot_id });
       return { click_id: res.clickId, redirect_url: res.redirectUrl, attribution_expires_at: res.expiresAt };
     });
   });
@@ -213,6 +215,7 @@ export function registerRoutes(app: FastifyInstance) {
     const amount = int(req.body?.amount, "교환 금액", { min: 100, max: 1_000_000 });
     const productId = str(req.body?.product_id ?? "coupon_3000", "상품", { max: 64 });
     const order = await requestPayout({ userId, amount, productId, idempotencyKey: key });
+    logEvent("payout_requested", userId, { amount, product_id: productId, status: order.status });
     return {
       payout_id: order.payout_id,
       status: order.status,
@@ -247,6 +250,7 @@ export function registerRoutes(app: FastifyInstance) {
     const userId = uid(req);
     const dayKey = req.body?.day_key ?? today();
     const res = claimMilestone({ userId, dayKey, milestone: Number(req.body?.milestone), adImpressionId: req.body?.ad_impression_id ?? "" });
+    if (!res.duplicate) logEvent("milestone_claim", userId, { milestone: Number(req.body?.milestone), reward: res.rewardAmount });
     return { ...res, status: todayStatus(userId, dayKey) };
   });
 
@@ -318,6 +322,12 @@ export function registerRoutes(app: FastifyInstance) {
     uid(req);
     assertLedgerBalanced();
     return { balanced: true };
+  });
+  // KPI 퍼널 요약(파일럿 관측): 이벤트별 카운트.
+  app.get("/v1/admin/funnel", async (req: FastifyRequest<{ Querystring: { since?: string } }>) => {
+    devOnly();
+    uid(req);
+    return { funnel: funnelSummary(req.query.since) };
   });
 }
 

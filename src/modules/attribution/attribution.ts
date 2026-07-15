@@ -4,6 +4,7 @@ import { db } from "../../db/index.js";
 import { id, now } from "../../lib/id.js";
 import { scoreConversion, fraudDecision } from "./fraud.js";
 import { createPendingFromConversion, approve, makeAvailable } from "../reward/reward.js";
+import { logEvent } from "../analytics/events.js";
 
 export interface NormalizedConversion {
   supplierId: string;
@@ -137,6 +138,9 @@ export function ingestConversion(
       makeAvailable(rewardTransactionId);
     }
   }
+
+  // KPI: 전환 결과(귀속/리뷰/거부)와 금액. 퍼널의 최종 단계이자 정산 관측점.
+  logEvent("conversion", userId, { source: n.source, status: decision, reward: rewardAmount, origin });
 
   return { conversionId, status: decision, duplicate: false, rewardTransactionId };
 }
