@@ -162,7 +162,7 @@ export async function generateAnswer(question: string, tier = config.aiModelTier
     const model = TIER_MODEL[tier] ?? TIER_MODEL.fast!;
     const resp = await client.messages.create({
       model,
-      max_tokens: 1200,
+      max_tokens: 2048, // 한국어 전체 답변+스키마가 잘려 JSON 파싱 실패하지 않도록 여유 확보
       system: SYSTEM_POLICY,
       messages: [{ role: "user", content: question }],
     });
@@ -176,11 +176,13 @@ export async function generateAnswer(question: string, tier = config.aiModelTier
 }
 
 function extractJson(text: string): Record<string, unknown> {
-  const start = text.indexOf("{");
-  const end = text.lastIndexOf("}");
+  // ```json 코드펜스 제거 후 첫 { ~ 마지막 } 구간을 파싱.
+  const cleaned = text.replace(/```json\s*/gi, "").replace(/```/g, "");
+  const start = cleaned.indexOf("{");
+  const end = cleaned.lastIndexOf("}");
   if (start >= 0 && end > start) {
     try {
-      return JSON.parse(text.slice(start, end + 1));
+      return JSON.parse(cleaned.slice(start, end + 1));
     } catch {
       /* fallthrough */
     }
