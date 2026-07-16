@@ -1,8 +1,21 @@
 import React, { useCallback, useState } from "react";
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Switch, Alert, Modal } from "react-native";
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Switch, Alert, Modal, LayoutAnimation, Platform, UIManager } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { T } from "../theme";
 import { Api, demoMode } from "../api";
+import { replayOnboarding } from "../onboarding";
+
+if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
+const FAQ: { q: string; a: string }[] = [
+  { q: "포인트는 어떻게 받나요?", a: "걷기, 간단한 미션, 혜택 참여로 포인트가 쌓여요. ‘내 보상’에서 확인하고 3,000원부터 모바일 쿠폰으로 바꿀 수 있어요." },
+  { q: "‘확인 중’은 무슨 뜻인가요?", a: "적립이 제휴사 확인을 기다리는 상태예요. 보통 며칠 안에 ‘사용 가능’으로 바뀌고, 취소·반품되면 회수될 수 있어요." },
+  { q: "정말 안전한가요? 비용이 드나요?", a: "이용료는 없어요. 비용은 광고주가 부담합니다. 위치 정보는 수집하지 않고, 이름·연락처는 상담을 신청하고 동의했을 때만 전달돼요." },
+  { q: "광고를 꼭 봐야 하나요?", a: "아니요. 답변은 광고와 무관하게 완결돼요. 필요할 때만 ‘광고·제휴’ 표시와 함께 혜택을 보여드려요." },
+  { q: "쿠폰은 어떻게 쓰나요?", a: "‘내 보상’에서 교환하면 쿠폰번호가 나와요. 편의점·온라인에서 사용할 수 있어요." },
+];
 
 // 철회 가능한 선택 동의(필수 동의는 서비스 이용에 필요하여 토글 대상 아님).
 const OPTIONAL: { purpose: string; title: string; desc: string }[] = [
@@ -15,6 +28,7 @@ export default function SettingsScreen() {
   const [granted, setGranted] = useState<Record<string, boolean>>({});
   const [busy, setBusy] = useState<string | null>(null);
   const [doc, setDoc] = useState<null | "terms" | "privacy">(null);
+  const [faqOpen, setFaqOpen] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -67,6 +81,22 @@ export default function SettingsScreen() {
         ))}
       </View>
       <Text style={s.hint}>동의는 언제든 켜고 끌 수 있어요. 끄면 즉시 반영됩니다.</Text>
+
+      <Text style={s.sectionH}>도움말 · 자주 묻는 질문</Text>
+      <View style={s.card}>
+        {FAQ.map((f, i) => (
+          <View key={i} style={i < FAQ.length - 1 ? s.rowDivider : undefined}>
+            <TouchableOpacity style={s.faqQ} activeOpacity={0.7} onPress={() => { LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut); setFaqOpen(faqOpen === i ? null : i); }}>
+              <Text style={s.faqQText}>{f.q}</Text>
+              <Text style={s.chev}>{faqOpen === i ? "∨" : "›"}</Text>
+            </TouchableOpacity>
+            {faqOpen === i && <Text style={s.faqA}>{f.a}</Text>}
+          </View>
+        ))}
+      </View>
+      <TouchableOpacity style={s.replay} onPress={replayOnboarding} activeOpacity={0.85}>
+        <Text style={s.replayText}>📖 앱 소개 다시 보기</Text>
+      </TouchableOpacity>
 
       <Text style={s.sectionH}>약관·정책</Text>
       <View style={s.card}>
@@ -128,6 +158,11 @@ const s = StyleSheet.create({
   linkRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 17 },
   linkText: { fontSize: 16, fontWeight: "700", color: T.ink },
   chev: { fontSize: 22, color: T.muted, fontWeight: "300" },
+  faqQ: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 16, gap: 12 },
+  faqQText: { flex: 1, fontSize: 15.5, fontWeight: "700", color: T.ink },
+  faqA: { fontSize: 14.5, color: T.muted, lineHeight: 22, paddingBottom: 16, paddingRight: 8 },
+  replay: { marginTop: 10, alignSelf: "flex-start", backgroundColor: T.brandSoft, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 11 },
+  replayText: { color: T.brand, fontWeight: "800", fontSize: 15 },
   appInfo: { textAlign: "center", color: T.muted, fontSize: 13, marginTop: 28 },
   modalBg: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "flex-end" },
   modalCard: { backgroundColor: T.card, borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: 20, paddingBottom: 34 },

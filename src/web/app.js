@@ -401,7 +401,43 @@ async function exchange(available) {
 
 function sourceLabel(s) { return ({ shopping_cps: "쇼핑 적립", offerwall_cpa: "미션 보상", cashwalk_ad: "걷기 보상", rental_cpa: "렌탈 보상" })[s] || s; }
 
+// ---------- 온보딩(첫 실행) ----------
+const ONB_STEPS = [
+  { emoji: "💬", title: "무엇이든 편하게<br>물어보세요", body: "생활비, 여행, 쇼핑, 렌탈까지. 궁금한 걸 말하듯 물어보면 핵심부터 쉽게 정리해 드려요.", point: "답변은 광고와 상관없이 완결돼요." },
+  { emoji: "🎁", title: "필요할 때만<br>혜택을 연결해요", body: "대화 속에 필요가 보일 때만 관련 혜택·미션을 보여드려요. 원치 않으면 안 봐도 됩니다. 광고는 늘 ‘광고·제휴’로 표시돼요.", point: "필요 없으면 답변만 받아도 괜찮아요." },
+  { emoji: "👛", title: "걷고 참여하면<br>포인트가 쌓여요", body: "걷기·간단한 미션·혜택 참여로 포인트를 모아 모바일 쿠폰으로 바꿔요. 비용은 광고주가 부담하고, 위치 정보는 수집하지 않아요.", point: "내 이름·번호는 동의한 경우에만 전달돼요." },
+];
+function showOnboarding() {
+  let i = 0;
+  const ov = el(`<div class="onb"></div>`);
+  function draw() {
+    const st = ONB_STEPS[i], last = i === ONB_STEPS.length - 1;
+    ov.innerHTML = `
+      <button class="onb-skip">건너뛰기</button>
+      <div class="onb-body">
+        <div class="onb-emoji">${st.emoji}</div>
+        <div class="onb-title">${st.title}</div>
+        <div class="onb-desc">${esc(st.body)}</div>
+        <div class="onb-point">✓ ${esc(st.point)}</div>
+      </div>
+      <div class="onb-dots">${ONB_STEPS.map((_, k) => `<span class="${k === i ? "on" : ""}"></span>`).join("")}</div>
+      <button class="onb-cta">${last ? "시작하기" : "다음"}</button>`;
+    ov.querySelector(".onb-skip").addEventListener("click", done);
+    ov.querySelector(".onb-cta").addEventListener("click", () => { if (last) done(); else { i++; draw(); } });
+  }
+  function done() { localStorage.setItem("hyeaek_onboarded", "1"); ov.remove(); }
+  draw();
+  document.body.appendChild(ov);
+}
+
 // ---------- 설정 ----------
+const FAQ_ITEMS = [
+  { q: "포인트는 어떻게 받나요?", a: "걷기, 간단한 미션, 혜택 참여로 포인트가 쌓여요. ‘내 보상’에서 확인하고 3,000원부터 모바일 쿠폰으로 바꿀 수 있어요." },
+  { q: "‘확인 중’은 무슨 뜻인가요?", a: "적립이 제휴사 확인을 기다리는 상태예요. 보통 며칠 안에 ‘사용 가능’으로 바뀌고, 취소·반품되면 회수될 수 있어요." },
+  { q: "정말 안전한가요? 비용이 드나요?", a: "이용료는 없어요. 비용은 광고주가 부담합니다. 위치 정보는 수집하지 않고, 이름·연락처는 상담을 신청하고 동의했을 때만 전달돼요." },
+  { q: "광고를 꼭 봐야 하나요?", a: "아니요. 답변은 광고와 무관하게 완결돼요. 필요할 때만 ‘광고·제휴’ 표시와 함께 혜택을 보여드려요." },
+  { q: "쿠폰은 어떻게 쓰나요?", a: "‘내 보상’에서 교환하면 쿠폰번호가 나와요. 편의점·온라인에서 사용할 수 있어요." },
+];
 const OPTIONAL_CONSENTS = [
   { purpose: "third_party", title: "개인정보 제3자 제공", desc: "렌탈 등 상담 신청 시 이름·연락처·주소를 제휴사에 전달합니다. 끄면 상담 신청이 제한됩니다." },
   { purpose: "personalized_ads", title: "맞춤 혜택 추천", desc: "대화 맥락에 맞는 혜택·미션을 추천받습니다. 끄면 일반 안내만 제공됩니다." },
@@ -435,6 +471,22 @@ async function renderSettings() {
   v.appendChild(card);
   v.appendChild(el(`<div class="sub" style="margin-top:8px">동의는 언제든 켜고 끌 수 있어요. 끄면 즉시 반영됩니다.</div>`));
 
+  v.appendChild(el(`<div class="set-sec">도움말 · 자주 묻는 질문</div>`));
+  const faq = el(`<div class="card set-card"></div>`);
+  FAQ_ITEMS.forEach((f, i) => {
+    const row = el(`<div class="${i < FAQ_ITEMS.length - 1 ? "rdiv" : ""}">
+      <button class="faq-q"><span>${esc(f.q)}</span><span class="chev">›</span></button>
+      <div class="faq-a" style="display:none">${esc(f.a)}</div>
+    </div>`);
+    const q = row.querySelector(".faq-q"), a = row.querySelector(".faq-a"), chev = row.querySelector(".chev");
+    q.addEventListener("click", () => { const open = a.style.display === "none"; a.style.display = open ? "block" : "none"; chev.textContent = open ? "∨" : "›"; });
+    faq.appendChild(row);
+  });
+  v.appendChild(faq);
+  const replay = el(`<button class="set-replay">📖 앱 소개 다시 보기</button>`);
+  replay.addEventListener("click", showOnboarding);
+  v.appendChild(replay);
+
   v.appendChild(el(`<div class="set-sec">약관·정책</div>`));
   const docs = el(`<div class="card set-card">
     <button class="set-link rdiv" id="t-terms">이용약관 <span class="chev">›</span></button>
@@ -465,3 +517,5 @@ function openDoc(title, body) {
 
 // 세션 보장 후 첫 렌더
 ensureSession().then(render).catch(() => render());
+// 첫 실행 온보딩(1회)
+if (!localStorage.getItem("hyeaek_onboarded")) showOnboarding();

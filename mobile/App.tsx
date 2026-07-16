@@ -6,6 +6,8 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { T } from "./src/theme";
 import { onDemoMode } from "./src/api";
+import { bindOnboarding, initOnboarding, completeOnboarding } from "./src/onboarding";
+import Onboarding from "./src/screens/Onboarding";
 import AIScreen from "./src/screens/AIScreen";
 import ShopScreen from "./src/screens/ShopScreen";
 import MissionScreen from "./src/screens/MissionScreen";
@@ -31,9 +33,16 @@ function DemoBanner() {
 }
 
 export default function App() {
+  const [onboarding, setOnboarding] = useState(false);
+  useEffect(() => {
+    bindOnboarding(setOnboarding);
+    initOnboarding();
+  }, []);
+
   return (
     <SafeAreaProvider>
       <StatusBar style="dark" />
+      <Onboarding visible={onboarding} onDone={() => completeOnboarding()} />
       <DemoBanner />
       <NavigationContainer>
         <Tab.Navigator
