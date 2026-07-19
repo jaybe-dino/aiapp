@@ -4,7 +4,7 @@
 import { db } from "../../db/index.js";
 import { config } from "../../config.js";
 import { id, now, sha256 } from "../../lib/id.js";
-import { classifyInput, type SafetyNotice } from "./safety.js";
+import { classifyInput, redactPII, screenOutput, type SafetyNotice } from "./safety.js";
 import { generateAnswer, selectRecommendations } from "./provider.js";
 import { chatCandidateBriefs, cardsFromPicks, type IntentContext, type OfferCard } from "../commercial/commercial.js";
 import { logEvent } from "../analytics/events.js";
@@ -20,15 +20,24 @@ export interface TurnResult {
   needLevel: "none" | "exploring" | "ready"; // 추천 노출 게이팅(none이면 카드 미노출)
   rewardNudge: "walk" | "mission" | null; // 대화 맥락 기반 걷기/미션 유도(선택)
   safetyNotice: SafetyNotice | null; // 사기·건강·금융 등 위험 감지 시 사용자 안전 안내
+  followUps: string[]; // 이어서 물어볼 만한 후속 질문(대화 유도)
 }
 
 export async function handleTurn(p: { conversationId: string; userId: string; question: string }): Promise<TurnResult> {
-  // 1) 입력 안전 판정
+  // 1) 입력 안전 판정 + 개인정보 마스킹(원문 대신 마스킹본을 LLM 전송·저장에 사용).
   const policy = classifyInput(p.question);
+  const safeQuestion = policy.pii ? redactPII(p.question) : p.question;
 
   // 2) 답변 생성 (공급자에게 광고 정보 미전달). 위험 감지 시 안전 지침을 함께 전달.
   //    3) 출력은 provider가 구조화 스키마로 반환.
-  const answer = await generateAnswer(p.question, config.aiModelTier, policy.guidanceForModel);
+  const answer = await generateAnswer(safeQuestion, config.aiModelTier, policy.guidanceForModel);
+
+  // 3-1) 출력 스크리닝(심층 방어): 위험 내용이 새어 나오면 안전 문구로 대체.
+  if (!screenOutput(answer.summary, answer.sections).safe) {
+    answer.summary = "죄송해요, 그 내용은 안전을 위해 자세히 안내하기 어려워요. 다른 방식으로 도와드릴게요.";
+    answer.sections = [];
+    answer.need_level = "none";
+  }
 
   // 4) 답변 확정 — 시각과 해시를 기록. 이 시점 이전에 오퍼 조회 없음.
   const answerSnapshotId = id("ans");
@@ -42,7 +51,7 @@ export async function handleTurn(p: { conversationId: string; userId: string; qu
     answerSnapshotId,
     p.conversationId,
     p.userId,
-    p.question,
+    safeQuestion, // 개인정보 마스킹본 저장(원문 평문 보관 금지)
     answerJson,
     contentHash,
     policy.riskTier,
@@ -59,9 +68,9 @@ export async function handleTurn(p: { conversationId: string; userId: string; qu
     category: answer.suggested_category,
     risk_tier: policy.riskTier,
   });
-  // 안전: 위험 카테고리(사기·위기·건강·금융·법률) 감지 시 별도 이벤트로 관측(가드레일 튜닝).
-  if (policy.category !== "none") {
-    logEvent("safety_flag", p.userId, { category: policy.category, level: policy.safetyNotice?.level });
+  // 안전: 위험 카테고리·개인정보 감지 시 별도 이벤트로 관측(가드레일 튜닝·관리).
+  if (policy.category !== "none" || policy.pii) {
+    logEvent("safety_flag", p.userId, { category: policy.category, pii: policy.pii, level: policy.safetyNotice?.level });
   }
 
   // 5) 답변 확정 '후'에만 제한된 의도 문맥 생성.
@@ -106,5 +115,7 @@ export async function handleTurn(p: { conversationId: string; userId: string; qu
     needLevel: answer.need_level,
     rewardNudge: answer.reward_nudge,
     safetyNotice: policy.safetyNotice,
+    // 위기·사기 등 강한 안전 상황에서는 후속 질문을 노출하지 않는다.
+    followUps: policy.safetyNotice?.level === "critical" ? [] : answer.follow_ups,
   };
 }

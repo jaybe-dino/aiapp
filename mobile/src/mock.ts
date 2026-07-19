@@ -115,6 +115,13 @@ function safetyOf(text: string): import("./api").SafetyNotice | null {
   return null;
 }
 
+function followUpsFor(cat: string): string[] {
+  if (cat === "rental") return ["의무 사용기간이 뭔가요?", "중도 해지하면 위약금이 있나요?"];
+  if (cat === "travel") return ["KTX랑 고속버스 중 뭐가 싸요?", "성수기 피하는 시기는 언제예요?"];
+  if (cat === "shopping") return ["배송비까지 합치면 얼마예요?", "더 싼 곳도 있을까요?"];
+  return ["좀 더 자세히 알려줄래요?", "제 상황에 맞게 정리해줄래요?"];
+}
+
 // api.ts 의 Api 와 동일한 시그니처
 export const MockApi = {
   async createConversation() { return { conversation_id: rid("cnv") }; },
@@ -143,6 +150,7 @@ export const MockApi = {
       needLevel: need,
       rewardNudge: nudge,
       safetyNotice: safety,
+      followUps: safety && safety.level === "critical" ? [] : followUpsFor(cat),
     };
   },
   async offers(type: "shopping" | "mission" | "rental") { return { offers: OFFERS[type] ?? [] }; },

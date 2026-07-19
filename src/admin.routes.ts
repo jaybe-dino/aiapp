@@ -104,4 +104,11 @@ export function registerAdminRoutes(app: FastifyInstance) {
   // 원장/감사
   app.get("/admin/v1/ledger", async (req) => { requireAdmin(req); return { accounts: admin.ledgerAccounts() }; });
   app.get("/admin/v1/audit", async (req) => { requireAdmin(req); return { audit: admin.listAudit() }; });
+
+  // 가드레일 관리(안전 카테고리 활성화·안내문·감지 통계)
+  app.get("/admin/v1/guardrails", async (req) => { requireAdmin(req); return admin.guardrailPanel(); });
+  app.post("/admin/v1/guardrails/:category", async (req: FastifyRequest<{ Params: { category: string }; Body: { enabled?: boolean; title?: string | null; body?: string | null } }>) => {
+    const u = requireAdmin(req, ["ops", "reviewer", "owner"]);
+    return admin.setGuardrail(u.email, req.params.category, req.body ?? {});
+  });
 }

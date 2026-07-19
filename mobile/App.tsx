@@ -7,6 +7,7 @@ import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { T } from "./src/theme";
 import { onDemoMode } from "./src/api";
 import { bindOnboarding, initOnboarding, completeOnboarding } from "./src/onboarding";
+import { initFontScale } from "./src/fontscale";
 import Onboarding from "./src/screens/Onboarding";
 import AIScreen from "./src/screens/AIScreen";
 import ShopScreen from "./src/screens/ShopScreen";
@@ -37,6 +38,7 @@ export default function App() {
   useEffect(() => {
     bindOnboarding(setOnboarding);
     initOnboarding();
+    initFontScale();
   }, []);
 
   return (

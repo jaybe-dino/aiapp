@@ -234,3 +234,10 @@ button, .btn {
 .res-btn { display: flex; align-items: center; gap: 8px; background: #fff; border: 1px solid #e7d9c0; border-radius: 12px; padding: 10px 13px; text-decoration: none; }
 .res-btn .rl { color: var(--muted); font-weight: 700; font-size: .82rem; }
 .res-btn .rv { color: #a01818; font-weight: 900; font-size: .95rem; }
+
+/* 후속 질문 유도 */
+.follow-wrap { margin-top: 10px; }
+.follow-head { color: var(--muted); font-weight: 800; font-size: .85rem; margin-bottom: 8px; }
+.follow-chip { display: flex; align-items: center; justify-content: space-between; width: 100%; text-align: left; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 13px 15px; margin-bottom: 8px; font-weight: 700; color: var(--brand-dark); font-size: .98rem; }
+.follow-chip .fa { color: var(--muted); font-weight: 300; font-size: 1.2rem; }
+.follow-chip:active { background: var(--brand-soft); }

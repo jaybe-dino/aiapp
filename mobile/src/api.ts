@@ -92,6 +92,7 @@ export interface AskResult {
   needLevel?: NeedLevel;
   rewardNudge?: RewardNudge;
   safetyNotice?: SafetyNotice | null;
+  followUps?: string[];
 }
 
 const RealApi = {

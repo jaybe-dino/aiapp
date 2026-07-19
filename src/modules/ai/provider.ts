@@ -27,6 +27,8 @@ export interface StructuredAnswer {
   reward_nudge: RewardNudge;
   // 2단계 추천 큐레이터에 넘길 '중립적 니즈 요약'(원문 아님). 예: "정수기 렌탈 조건 비교를 원함".
   need_summary: string;
+  // 이어서 물어볼 만한 짧은 후속 질문(사용자 입장). 대화를 자연스럽게 이어가도록 유도.
+  follow_ups: string[];
 }
 
 // 2단계(추천 큐레이션)용 후보 요약. 커머셜 모듈이 답변 확정 '후'에 채워 넘긴다(수수료 정보 없음).
@@ -75,7 +77,8 @@ reward_nudge: 대화가 건강·산책·운동·소일거리·용돈·절약과 
  "suggested_category": "travel|shopping|rental|survey|life|null 중 하나(정수기·비데·공기청정기 렌탈/구독 문의는 rental)",
  "need_level": "none|exploring|ready",
  "reward_nudge": "walk|mission|null",
- "need_summary": "상업적 니즈를 한 문장으로 중립 요약(광고 판단 금지, 없으면 빈 문자열)"}`;
+ "need_summary": "상업적 니즈를 한 문장으로 중립 요약(광고 판단 금지, 없으면 빈 문자열)",
+ "follow_ups": ["이어서 물어볼 만한 짧은 질문 2~3개(사용자 입장 1인칭, 각 20자 내외). 위험 주제면 빈 배열."]}`;
 
 // ── 2단계: 추천 큐레이터 ──────────────────────────────────────────────
 // 답변 확정 '후'에만 호출된다. LLM이 후보 오퍼 중 이 니즈에 정말 맞는 것만 고르고 이유를 쓴다.
@@ -205,6 +208,7 @@ function normalize(json: Record<string, unknown>, question: string): StructuredA
     need_level: (["none", "exploring", "ready"].includes(need) ? need : base.need_level) as NeedLevel,
     reward_nudge: (nudge === "walk" || nudge === "mission" ? nudge : null) as RewardNudge,
     need_summary: typeof json.need_summary === "string" ? json.need_summary : base.need_summary,
+    follow_ups: Array.isArray(json.follow_ups) ? (json.follow_ups as unknown[]).filter((x) => typeof x === "string").slice(0, 3) as string[] : base.follow_ups,
   };
 }
 
@@ -260,5 +264,16 @@ function mockAnswer(question: string, degraded = false): StructuredAnswer {
     need_level,
     reward_nudge,
     need_summary: need_level === "none" ? "" : `${category} 관련 도움을 찾고 있음`,
+    follow_ups: followUpsFor(category),
   };
+}
+
+function followUpsFor(category: string | null): string[] {
+  switch (category) {
+    case "rental": return ["의무 사용기간이 뭔가요?", "중도 해지하면 위약금이 있나요?", "자가 관리형이 더 쌀까요?"];
+    case "travel": return ["KTX랑 고속버스 중 뭐가 싸요?", "성수기 피하는 시기는 언제예요?"];
+    case "shopping": return ["배송비까지 합치면 얼마예요?", "더 싼 곳도 있을까요?"];
+    case "survey": return ["미션은 얼마나 걸리나요?", "포인트는 언제 들어와요?"];
+    default: return ["좀 더 자세히 알려줄래요?", "제 상황에 맞게 정리해줄래요?"];
+  }
 }

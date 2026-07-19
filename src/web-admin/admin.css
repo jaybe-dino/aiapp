@@ -59,3 +59,13 @@ td .actions { display:flex; gap:6px; flex-wrap:wrap; }
 .modal-bg { position:fixed; inset:0; background:rgba(0,0,0,.5); display:grid; place-items:center; z-index:40; }
 .modal { background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:22px; width:440px; max-width:92vw; }
 code { background:var(--panel2); padding:2px 6px; border-radius:5px; font-size:.82rem; }
+
+/* 가드레일 관리 */
+.gr-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:14px; margin-top:12px; }
+.gr-card { padding:16px; }
+.gr-head { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:12px; }
+.gr-toggle { display:flex; align-items:center; gap:7px; font-weight:700; font-size:.85rem; white-space:nowrap; }
+.gr-toggle input { width:18px; height:18px; }
+.gr-l { display:block; font-size:.78rem; color:var(--muted); font-weight:700; margin:8px 0 4px; }
+.gr-in { width:100%; font:inherit; font-size:.9rem; padding:9px 11px; border:1px solid var(--line); border-radius:9px; background:var(--panel2); color:var(--fg); resize:vertical; }
+.gr-card .btn { margin-top:12px; }

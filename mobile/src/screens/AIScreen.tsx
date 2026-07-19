@@ -6,6 +6,7 @@ import {
 import { useNavigation } from "@react-navigation/native";
 import { T, won } from "../theme";
 import { Api, OfferCard as Offer, NeedLevel, RewardNudge, SafetyNotice } from "../api";
+import { onFontScale } from "../fontscale";
 import OfferCard from "../components/OfferCard";
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -20,6 +21,7 @@ type Msg =
       role: "ai"; summary: string; sections: { title: string; body: string }[]; uncertainty: string;
       needLevel: NeedLevel; benefits: Offer[]; missions: Offer[]; rewardNudge: RewardNudge; answerSnapshotId: string;
       safety?: SafetyNotice | null; // 사기·건강·금융 등 안전 안내
+      followUps?: string[]; // 이어서 물어볼 후속 질문
       retry?: string; // 실패 시 재시도할 질문
     };
 
@@ -35,9 +37,12 @@ export default function AIScreen() {
   const [text, setText] = useState("");
   const [messages, setMessages] = useState<Msg[]>([]);
   const [busy, setBusy] = useState(false);
+  const [fs, setFs] = useState(1);
   const convId = useRef<string | null>(null);
   const scrollRef = useRef<ScrollView>(null);
   const inputRef = useRef<TextInput>(null);
+
+  useEffect(() => onFontScale(setFs), []);
 
   const scrollToEnd = () => setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 70);
 
@@ -66,6 +71,7 @@ export default function AIScreen() {
           rewardNudge: r.rewardNudge ?? null,
           answerSnapshotId: r.answerSnapshotId,
           safety: r.safetyNotice ?? null,
+          followUps: r.followUps ?? [],
         },
       ]);
     } catch {
@@ -105,7 +111,7 @@ export default function AIScreen() {
             </View>
           </View>
         ) : (
-          messages.map((m, i) => <MessageView key={i} m={m} goTab={goTab} onRetry={ask} />)
+          messages.map((m, i) => <MessageView key={i} m={m} goTab={goTab} onRetry={ask} fs={fs} />)
         )}
       </ScrollView>
 
@@ -121,8 +127,8 @@ export default function AIScreen() {
   );
 }
 
-function MessageView({ m, goTab, onRetry }: { m: Msg; goTab: (n: string) => void; onRetry: (q: string) => void }) {
-  if (m.role === "user") return <View style={s.userBubble}><Text style={s.userText}>{m.text}</Text></View>;
+function MessageView({ m, goTab, onRetry, fs }: { m: Msg; goTab: (n: string) => void; onRetry: (q: string) => void; fs: number }) {
+  if (m.role === "user") return <View style={s.userBubble}><Text style={[s.userText, { fontSize: 16.5 * fs, lineHeight: 23 * fs }]}>{m.text}</Text></View>;
   if (m.role === "loading") return <View style={s.aiCard}><TypingDots /></View>;
 
   const failed = !!m.retry;
@@ -130,11 +136,11 @@ function MessageView({ m, goTab, onRetry }: { m: Msg; goTab: (n: string) => void
     <View style={{ marginBottom: 6 }}>
       <View style={s.aiCard}>
         <View style={s.aiBadgeRow}><View style={s.aiBadge}><Text style={s.aiBadgeText}>AI</Text></View><Text style={s.aiBadgeLabel}>도우미</Text></View>
-        <Text style={s.summary}>{m.summary}</Text>
+        <Text style={[s.summary, { fontSize: 18 * fs, lineHeight: 26 * fs }]}>{m.summary}</Text>
         {m.sections.map((sec, j) => (
           <View key={j} style={{ marginTop: 10 }}>
-            <Text style={s.secTitle}>{sec.title}</Text>
-            <Text style={s.secBody}>{sec.body}</Text>
+            <Text style={[s.secTitle, { fontSize: 15.5 * fs }]}>{sec.title}</Text>
+            <Text style={[s.secBody, { fontSize: 15 * fs, lineHeight: 22 * fs }]}>{sec.body}</Text>
           </View>
         ))}
         {!!m.uncertainty && <View style={s.uncertain}><Text style={s.uncertainText}>⚠️ {m.uncertainty}</Text></View>}
@@ -158,8 +164,20 @@ function MessageView({ m, goTab, onRetry }: { m: Msg; goTab: (n: string) => void
       {/* 리워드 넛지 — 대화 맥락에 맞을 때 걷기/미션으로 연결 */}
       {m.rewardNudge && <NudgeChip kind={m.rewardNudge} onPress={() => goTab(m.rewardNudge === "walk" ? "걷기" : "미션")} />}
 
-      {!failed && m.needLevel === "none" && !m.rewardNudge && (
+      {!failed && m.needLevel === "none" && !m.rewardNudge && !m.safety && (
         <View style={s.noAd}><Text style={s.noAdText}>지금은 안내에 집중했어요. 필요한 순간에만 혜택을 연결해 드려요.</Text></View>
+      )}
+
+      {/* 후속 질문 유도 — 탭하면 이어서 물어봄 */}
+      {!failed && !!m.followUps?.length && (
+        <View style={s.followWrap}>
+          <Text style={s.followHead}>이어서 물어보기</Text>
+          {m.followUps.map((q, k) => (
+            <TouchableOpacity key={k} style={s.followChip} activeOpacity={0.85} onPress={() => onRetry(q)}>
+              <Text style={s.followText}>{q}</Text><Text style={s.followArrow}>›</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
       )}
     </View>
   );
@@ -300,6 +318,11 @@ const s = StyleSheet.create({
 
   noAd: { backgroundColor: T.inset, borderRadius: 13, padding: 13, marginBottom: 12 },
   noAdText: { color: T.muted, fontSize: 13, lineHeight: 19 },
+  followWrap: { marginBottom: 12, marginTop: 2 },
+  followHead: { color: T.muted, fontWeight: "800", fontSize: 13, marginBottom: 8 },
+  followChip: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: T.card, borderWidth: 1, borderColor: T.line, borderRadius: 14, paddingVertical: 13, paddingHorizontal: 15, marginBottom: 8 },
+  followText: { color: T.brandDark, fontWeight: "700", fontSize: 15, flex: 1 },
+  followArrow: { color: T.muted, fontWeight: "300", fontSize: 20 },
 
   inputBar: { flexDirection: "row", alignItems: "flex-end", gap: 9, paddingHorizontal: 14, paddingTop: 9, paddingBottom: Platform.OS === "ios" ? 26 : 12, backgroundColor: T.card, borderTopWidth: 1, borderTopColor: T.line },
   inputWrap: { flex: 1, backgroundColor: T.bg, borderRadius: 22, borderWidth: 1, borderColor: T.line, paddingHorizontal: 17, justifyContent: "center", minHeight: 50, maxHeight: 130 },

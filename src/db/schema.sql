@@ -84,6 +84,17 @@ CREATE TABLE IF NOT EXISTS events (
 );
 CREATE INDEX IF NOT EXISTS idx_events_name_time ON events(name, created_at);
 
+-- 가드레일 운영 설정. 카테고리별 활성화·안내문 오버라이드(운영자가 콘솔에서 관리).
+-- 행이 없으면 코드 기본값 사용. 패턴(정규식)은 코드에 두고, 노출 여부·문구만 여기서 조정.
+CREATE TABLE IF NOT EXISTS guardrail_rules (
+  category     TEXT PRIMARY KEY,  -- scam|crisis|health|finance|legal|pii|adult
+  enabled      INTEGER NOT NULL DEFAULT 1,
+  notice_title TEXT,              -- NULL이면 코드 기본 문구
+  notice_body  TEXT,
+  updated_at   TEXT,
+  updated_by   TEXT
+);
+
 -- =========================================================================
 -- Commercial: 오퍼 카탈로그 (기획안 11장) — 조건은 불변 스냅샷으로 보존
 -- =========================================================================

@@ -152,8 +152,19 @@ function answerBlock(r) {
 
   if (r.rewardNudge) ad.appendChild(nudgeChip(r.rewardNudge));
 
-  if (need === "none" && !r.rewardNudge) {
+  if (need === "none" && !r.rewardNudge && !r.safetyNotice) {
     ad.appendChild(el(`<div class="ai-note">지금은 안내에 집중했어요. 필요한 순간에만 혜택을 연결해 드려요.</div>`));
+  }
+
+  // 후속 질문 유도 — 탭하면 이어서 물어봄
+  if (Array.isArray(r.followUps) && r.followUps.length) {
+    const fw = el(`<div class="follow-wrap"><div class="follow-head">이어서 물어보기</div></div>`);
+    r.followUps.forEach((q) => {
+      const c = el(`<button class="follow-chip"><span>${esc(q)}</span><span class="fa">›</span></button>`);
+      c.addEventListener("click", () => ask(q));
+      fw.appendChild(c);
+    });
+    ad.appendChild(fw);
   }
   return block;
 }

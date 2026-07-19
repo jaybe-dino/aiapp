@@ -1,9 +1,10 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Switch, Alert, Modal, LayoutAnimation, Platform, UIManager } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { T } from "../theme";
 import { Api, demoMode } from "../api";
 import { replayOnboarding } from "../onboarding";
+import { SCALES, currentScale, setFontScale, onFontScale } from "../fontscale";
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -29,6 +30,8 @@ export default function SettingsScreen() {
   const [busy, setBusy] = useState<string | null>(null);
   const [doc, setDoc] = useState<null | "terms" | "privacy">(null);
   const [faqOpen, setFaqOpen] = useState<number | null>(null);
+  const [scale, setScale] = useState(currentScale());
+  useEffect(() => onFontScale(setScale), []);
 
   const load = useCallback(async () => {
     try {
@@ -61,6 +64,15 @@ export default function SettingsScreen() {
   return (
     <ScrollView style={{ flex: 1, backgroundColor: T.bg }} contentContainerStyle={{ padding: 18, paddingBottom: 40 }}>
       <Text style={s.h}>설정</Text>
+
+      <Text style={s.sectionH}>AI 대화 글자 크기</Text>
+      <View style={s.scaleRow}>
+        {SCALES.map((sc) => (
+          <TouchableOpacity key={sc.id} style={[s.scaleBtn, Math.abs(scale - sc.value) < 0.01 && s.scaleBtnOn]} onPress={() => setFontScale(sc.value)} activeOpacity={0.85}>
+            <Text style={[s.scaleBtnText, Math.abs(scale - sc.value) < 0.01 && s.scaleBtnTextOn, { fontSize: 14 * sc.value }]}>{sc.label}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
 
       <Text style={s.sectionH}>개인정보·동의 관리</Text>
       <View style={s.card}>
@@ -149,6 +161,11 @@ function DocModal({ kind, onClose }: { kind: null | "terms" | "privacy"; onClose
 const s = StyleSheet.create({
   h: { fontSize: 26, fontWeight: "900", color: T.ink, marginBottom: 8 },
   sectionH: { color: T.muted, fontWeight: "800", fontSize: 14, marginTop: 22, marginBottom: 8 },
+  scaleRow: { flexDirection: "row", gap: 10 },
+  scaleBtn: { flex: 1, backgroundColor: T.card, borderWidth: 1, borderColor: T.line, borderRadius: 14, paddingVertical: 16, alignItems: "center" },
+  scaleBtnOn: { backgroundColor: T.brandSoft, borderColor: T.brand },
+  scaleBtnText: { fontWeight: "800", color: T.ink },
+  scaleBtnTextOn: { color: T.brand },
   card: { backgroundColor: T.card, borderRadius: 18, borderWidth: 1, borderColor: T.line, paddingHorizontal: 16 },
   consentRow: { flexDirection: "row", alignItems: "center", paddingVertical: 15 },
   rowDivider: { borderBottomWidth: 1, borderBottomColor: T.line },

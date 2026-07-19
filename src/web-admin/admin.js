@@ -22,6 +22,7 @@ const SECTIONS = [
   { id: "adjustments", label: "보상 조정(이중승인)", render: renderAdjustments, badge: "pending_adjustments" },
   { id: "payouts", label: "지급·대사", render: renderPayouts, badge: "unknown_payouts" },
   { id: "users", label: "사용자·동의", render: renderUsers },
+  { id: "guardrails", label: "가드레일", render: renderGuardrails },
   { id: "ledger", label: "원장 뷰어", render: renderLedger },
   { id: "audit", label: "감사 로그", render: renderAudit },
 ];
@@ -129,6 +130,45 @@ async function renderSuppliers() {
   $("#main").querySelectorAll("[data-id]").forEach((b) => b.addEventListener("click", async () => {
     await api(`/admin/v1/suppliers/${b.dataset.id}/reward`, { method: "POST", body: JSON.stringify({ allowed: b.dataset.to === "1" }) });
     toast("반영됨"); renderSuppliers();
+  }));
+}
+
+// ---------- 가드레일 관리 ----------
+const CAT_LABEL = { scam: "사기·보이스피싱", crisis: "정서 위기", health: "건강·의료", finance: "투자·금융", legal: "법률", adult: "성인·선정" };
+async function renderGuardrails() {
+  const d = await api("/admin/v1/guardrails");
+  const statMap = {}; (d.stats || []).forEach((s) => { if (s.category) statMap[s.category] = s.count; });
+  const cards = d.rules.map((r) => `
+    <div class="panel gr-card">
+      <div class="gr-head">
+        <div><b>${esc(CAT_LABEL[r.category] || r.category)}</b> <span class="tag ${r.level === "critical" ? "bad" : "warn"}">${r.level}</span>
+          ${r.customized ? '<span class="tag">수정됨</span>' : ""}
+          <div class="muted">최근 감지 ${statMap[r.category] || 0}건</div>
+        </div>
+        <label class="gr-toggle"><input type="checkbox" data-cat="${r.category}" ${r.enabled ? "checked" : ""}/> <span>${r.enabled ? "켜짐" : "꺼짐"}</span></label>
+      </div>
+      <label class="gr-l">안내 제목</label>
+      <input class="gr-in" data-title="${r.category}" value="${esc(r.title)}"/>
+      <label class="gr-l">안내 내용</label>
+      <textarea class="gr-in" data-body="${r.category}" rows="3">${esc(r.body)}</textarea>
+      <button class="btn sm primary" data-save="${r.category}">저장</button>
+    </div>`).join("");
+  $("#main").innerHTML = `<h1>가드레일 관리</h1>
+    <p class="sub">위험 주제(사기·위기·건강·금융·법률·성인)를 감지하면 광고를 차단하고 사용자에게 안전 안내를 보여줍니다. 카테고리 켜기/끄기와 안내 문구를 조정할 수 있어요. 패턴 자체는 코드에서 관리됩니다.</p>
+    <div class="panel"><b>개인정보(PII) 마스킹</b> — 주민번호·카드·계좌 입력 시 자동으로 가려 저장합니다. 최근 감지 <b>${d.piiCount || 0}건</b>.</div>
+    <div class="gr-grid">${cards}</div>
+    <h2 style="margin-top:22px">최근 안전 감지</h2>
+    <div class="panel"><table><thead><tr><th>시각</th><th>사용자</th><th>카테고리</th><th>수준</th><th>PII</th></tr></thead><tbody>
+      ${(d.recent || []).map((e) => `<tr><td class="muted">${new Date(e.created_at).toLocaleString("ko-KR")}</td><td>${esc(e.user_id || "-")}</td><td>${esc(CAT_LABEL[e.category] || e.category || "-")}</td><td>${esc(e.level || "-")}</td><td>${e.pii ? "예" : ""}</td></tr>`).join("") || '<tr><td colspan="5" class="muted">감지 내역이 없습니다.</td></tr>'}
+    </tbody></table></div>`;
+
+  $("#main").querySelectorAll("[data-save]").forEach((btn) => btn.addEventListener("click", async () => {
+    const cat = btn.dataset.save;
+    const enabled = $("#main").querySelector(`[data-cat="${cat}"]`).checked;
+    const title = $("#main").querySelector(`[data-title="${cat}"]`).value;
+    const body = $("#main").querySelector(`[data-body="${cat}"]`).value;
+    try { await api(`/admin/v1/guardrails/${cat}`, { method: "POST", body: JSON.stringify({ enabled, title, body }) }); toast("저장됨"); renderGuardrails(); }
+    catch (e) { toast(e.title || "저장 실패"); }
   }));
 }
 

@@ -4,6 +4,7 @@ import { id, now } from "../../lib/id.js";
 import { Problems } from "../../lib/problem.js";
 import { accountBalance, Accounts, assertLedgerBalanced, bookManualAdjustment, bookPayoutPaid, bookPayoutReversed } from "../ledger/ledger.js";
 import { approve, makeAvailable, reverse, getReward, createPendingFromConversion } from "../reward/reward.js";
+import { guardrailConfig, updateGuardrail } from "../ai/safety.js";
 
 export interface AdminUser {
   admin_id: string;
@@ -69,6 +70,33 @@ export function dashboard() {
 }
 
 // ---------- 공급사 ----------
+// ── 가드레일 관리 ────────────────────────────────────────────────────
+/** 가드레일 콘솔 데이터: 카테고리별 설정 + 최근 감지 통계 + 최근 플래그. */
+export function guardrailPanel() {
+  const rules = guardrailConfig();
+  // 최근 7일 카테고리별 감지 수(events.safety_flag).
+  const stats = db
+    .prepare(
+      `SELECT json_extract(props_json,'$.category') AS category, COUNT(*) AS count
+       FROM events WHERE name='safety_flag' GROUP BY category ORDER BY count DESC`
+    )
+    .all() as { category: string; count: number }[];
+  const piiCount = (db.prepare("SELECT COUNT(*) AS c FROM events WHERE name='safety_flag' AND json_extract(props_json,'$.pii')=1").get() as { c: number }).c;
+  const recent = db
+    .prepare(
+      `SELECT event_id, user_id, json_extract(props_json,'$.category') AS category,
+              json_extract(props_json,'$.level') AS level, json_extract(props_json,'$.pii') AS pii, created_at
+       FROM events WHERE name='safety_flag' ORDER BY created_at DESC LIMIT 30`
+    )
+    .all();
+  return { rules, stats, piiCount, recent };
+}
+export function setGuardrail(actor: string, category: string, patch: { enabled?: boolean; title?: string | null; body?: string | null }) {
+  updateGuardrail(category, patch, actor);
+  audit(actor, "guardrail.update", category, patch);
+  return { ok: true };
+}
+
 export function listSuppliers() {
   return db.prepare("SELECT supplier_id, name, type, reward_traffic_allowed FROM suppliers ORDER BY supplier_id").all();
 }
