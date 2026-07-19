@@ -38,6 +38,8 @@ export const config = {
   enableDevEndpoints: (process.env.ENABLE_DEV_ENDPOINTS ?? (nodeEnv !== "production" ? "true" : "false")) === "true",
   // 쓰기 API 레이트리밋(분당 요청 수, IP+사용자 기준).
   writeRateLimitPerMin: Number(process.env.WRITE_RATE_LIMIT_PER_MIN ?? 120),
+  // AI 일일 대화 상한(사용자당). 비용·어뷰징 방어. 초과 시 LLM 호출 없이 안내.
+  dailyChatCap: Number(process.env.DAILY_CHAT_CAP ?? 200),
 } as const;
 
 // [보안] 운영(prod)에서 개발용 기본 비밀이 그대로 쓰이면 세션 위조·PII 복호화·포스트백 위조가

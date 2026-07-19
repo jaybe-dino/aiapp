@@ -157,7 +157,14 @@ function mockCurate(input: { category: string | null; needLevel: NeedLevel }, br
 
 function fmt(n: number): string { return n.toLocaleString("ko-KR"); }
 
-export async function generateAnswer(question: string, tier = config.aiModelTier, safetyGuidance?: string | null): Promise<StructuredAnswer> {
+export interface ChatMessage { role: "user" | "assistant"; content: string; }
+
+export async function generateAnswer(
+  question: string,
+  tier = config.aiModelTier,
+  safetyGuidance?: string | null,
+  history?: ChatMessage[]
+): Promise<StructuredAnswer> {
   if (!config.anthropicApiKey) return mockAnswer(question);
 
   try {
@@ -165,11 +172,13 @@ export async function generateAnswer(question: string, tier = config.aiModelTier
     const model = TIER_MODEL[tier] ?? TIER_MODEL.fast!;
     // 안전 엔진이 위험 카테고리를 감지하면 그 지침을 시스템 프롬프트에 덧붙여 안전하게 답하도록 유도.
     const system = safetyGuidance ? `${SYSTEM_POLICY}\n\n[안전 지침]\n${safetyGuidance}` : SYSTEM_POLICY;
+    // 멀티턴 기억: 이전 대화(user/assistant)를 함께 전달해 맥락을 이어간다.
+    const messages = [...(history ?? []), { role: "user" as const, content: question }];
     const resp = await client.messages.create({
       model,
       max_tokens: 2048, // 한국어 전체 답변+스키마가 잘려 JSON 파싱 실패하지 않도록 여유 확보
       system,
-      messages: [{ role: "user", content: question }],
+      messages,
     });
     const text = resp.content.filter((b) => b.type === "text").map((b) => (b as { text: string }).text).join("");
     const json = extractJson(text);

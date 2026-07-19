@@ -5,7 +5,7 @@ import { db } from "../../db/index.js";
 import { config } from "../../config.js";
 import { id, now, sha256 } from "../../lib/id.js";
 import { classifyInput, redactPII, screenOutput, type SafetyNotice } from "./safety.js";
-import { generateAnswer, selectRecommendations } from "./provider.js";
+import { generateAnswer, selectRecommendations, type ChatMessage } from "./provider.js";
 import { chatCandidateBriefs, cardsFromPicks, type IntentContext, type OfferCard } from "../commercial/commercial.js";
 import { logEvent } from "../analytics/events.js";
 
@@ -23,14 +23,46 @@ export interface TurnResult {
   followUps: string[]; // 이어서 물어볼 만한 후속 질문(대화 유도)
 }
 
+/** 대화 이력(멀티턴 기억): 이 대화의 이전 턴들을 user/assistant 메시지로 복원(최근 N턴). */
+export function conversationHistory(conversationId: string, maxTurns = 6): ChatMessage[] {
+  const rows = db
+    .prepare("SELECT question, answer_json FROM answers WHERE conversation_id = ? ORDER BY created_at ASC")
+    .all(conversationId) as { question: string; answer_json: string }[];
+  const recent = rows.slice(-maxTurns);
+  const msgs: ChatMessage[] = [];
+  for (const r of recent) {
+    msgs.push({ role: "user", content: r.question });
+    try {
+      const a = JSON.parse(r.answer_json) as { summary?: string; sections?: { body: string }[] };
+      const body = [a.summary ?? "", ...(a.sections ?? []).map((s) => s.body)].join(" ").slice(0, 600);
+      msgs.push({ role: "assistant", content: body || "(이전 답변)" });
+    } catch {
+      msgs.push({ role: "assistant", content: "(이전 답변)" });
+    }
+  }
+  return msgs;
+}
+
+/** 일일 대화 수(비용·어뷰징 방어용). */
+function dailyChatCount(userId: string): number {
+  const today = now().slice(0, 10);
+  return (db.prepare("SELECT COUNT(*) AS c FROM answers WHERE user_id = ? AND substr(created_at,1,10) = ?").get(userId, today) as { c: number }).c;
+}
+
 export async function handleTurn(p: { conversationId: string; userId: string; question: string }): Promise<TurnResult> {
+  // 0) 일일 대화 상한(비용/어뷰징 방어). 초과 시 LLM 호출 없이 안내.
+  if (dailyChatCount(p.userId) >= config.dailyChatCap) {
+    return cappedResult(p);
+  }
+
   // 1) 입력 안전 판정 + 개인정보 마스킹(원문 대신 마스킹본을 LLM 전송·저장에 사용).
   const policy = classifyInput(p.question);
   const safeQuestion = policy.pii ? redactPII(p.question) : p.question;
 
-  // 2) 답변 생성 (공급자에게 광고 정보 미전달). 위험 감지 시 안전 지침을 함께 전달.
+  // 2) 답변 생성 (공급자에게 광고 정보 미전달). 위험 감지 시 안전 지침·대화 이력을 함께 전달.
   //    3) 출력은 provider가 구조화 스키마로 반환.
-  const answer = await generateAnswer(safeQuestion, config.aiModelTier, policy.guidanceForModel);
+  const history = conversationHistory(p.conversationId);
+  const answer = await generateAnswer(safeQuestion, config.aiModelTier, policy.guidanceForModel, history);
 
   // 3-1) 출력 스크리닝(심층 방어): 위험 내용이 새어 나오면 안전 문구로 대체.
   if (!screenOutput(answer.summary, answer.sections).safe) {
@@ -117,5 +149,32 @@ export async function handleTurn(p: { conversationId: string; userId: string; qu
     safetyNotice: policy.safetyNotice,
     // 위기·사기 등 강한 안전 상황에서는 후속 질문을 노출하지 않는다.
     followUps: policy.safetyNotice?.level === "critical" ? [] : answer.follow_ups,
+  };
+}
+
+/** 일일 대화 상한 초과 시 LLM 호출 없이 반환하는 안내(비용/어뷰징 방어). */
+function cappedResult(p: { conversationId: string; userId: string; question: string }): TurnResult {
+  logEvent("chat_capped", p.userId, {});
+  return {
+    answerSnapshotId: id("ans"),
+    finalizedAt: now(),
+    answer: {
+      summary: "오늘 대화 이용량이 많아, 잠시 후 다시 도와드릴게요.",
+      sections: [{ title: "안내", body: "무리한 사용을 막기 위한 하루 한도예요. 내일 다시 편하게 물어보실 수 있어요." }],
+      uncertainty: { level: "low", message: "" },
+      suggested_category: null,
+      need_level: "none",
+      reward_nudge: null,
+      need_summary: "",
+      follow_ups: [],
+    },
+    citations: [],
+    policy: { riskTier: "low", commercialAllowed: false, reasonCodes: ["daily_cap"] },
+    commercial: null,
+    matched: { benefits: [], missions: [] },
+    needLevel: "none",
+    rewardNudge: null,
+    safetyNotice: null,
+    followUps: [],
   };
 }
