@@ -27,10 +27,9 @@ type Msg =
     };
 
 const QUICK = [
-  { emoji: "💬", label: "생활비를 아끼고 싶어요" },
-  { emoji: "🛡️", label: "이거 사기 아닌가요? 원금 보장에 고수익이래요" },
-  { emoji: "🧳", label: "여행 싸게 가는 법 알려줘요" },
-  { emoji: "🚰", label: "정수기 렌탈을 알아봐요" },
+  { emoji: "💰", label: "생활비 아끼는 법" },
+  { emoji: "🛡️", label: "이거 사기인가요?" },
+  { emoji: "🧳", label: "여행 싸게 가기" },
 ];
 
 export default function AIScreen() {
@@ -96,7 +95,7 @@ export default function AIScreen() {
       <ScrollView ref={scrollRef} style={{ flex: 1 }} contentContainerStyle={{ padding: 18, paddingBottom: 10 }} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" onContentSizeChange={scrollToEnd} showsVerticalScrollIndicator={false}>
         {empty ? (
           <View>
-            {pro && (
+            {pro ? (
               <View style={s.proCard}>
                 <View style={s.proHead}>
                   <Text style={s.proTitle}>오늘의 이야기</Text>
@@ -112,18 +111,12 @@ export default function AIScreen() {
                   </TouchableOpacity>
                 )}
               </View>
+            ) : (
+              <View style={{ marginBottom: 22, marginTop: 8 }}>
+                <Text style={s.hello}>안녕하세요 👋</Text>
+                <Text style={s.h}>무엇이든{"\n"}편하게 물어보세요</Text>
+              </View>
             )}
-            <Text style={s.hello}>안녕하세요 👋</Text>
-            <Text style={s.h}>무엇이 궁금하세요?</Text>
-            <Text style={s.lead}>생활·건강·돈 문제까지, 무엇이든 편하게{"\n"}물어보세요. 쉬운 말로 정리해 드릴게요.</Text>
-
-            <TouchableOpacity style={s.talk} activeOpacity={0.9} onPress={() => inputRef.current?.focus()}>
-              <View style={s.talkMic}><Text style={{ fontSize: 22 }}>✏️</Text></View>
-              <View style={{ flex: 1 }}><Text style={s.talkTitle}>눌러서 물어보기</Text><Text style={s.talkSub}>궁금한 걸 그대로 적어 보세요</Text></View>
-              <Text style={s.talkArrow}>›</Text>
-            </TouchableOpacity>
-
-            <Text style={s.quickHead}>이렇게 물어보세요</Text>
             <View style={s.chipWrap}>
               {QUICK.map((qq) => (
                 <TouchableOpacity key={qq.label} style={s.chip} onPress={() => ask(qq.label)} activeOpacity={0.85}>
@@ -165,7 +158,7 @@ function MessageView({ m, goTab, onRetry, fs }: { m: Msg; goTab: (n: string) => 
             <Text style={[s.secBody, { fontSize: 15 * fs, lineHeight: 22 * fs }]}>{sec.body}</Text>
           </View>
         ))}
-        {!!m.uncertainty && <View style={s.uncertain}><Text style={s.uncertainText}>⚠️ {m.uncertainty}</Text></View>}
+        {!!m.uncertainty && <Text style={s.uncertainNote}>ⓘ {m.uncertainty}</Text>}
         {failed && (
           <TouchableOpacity style={s.retryBtn} onPress={() => onRetry(m.retry!)} activeOpacity={0.85}>
             <Text style={s.retryText}>↻ 다시 시도</Text>
@@ -194,7 +187,7 @@ function MessageView({ m, goTab, onRetry, fs }: { m: Msg; goTab: (n: string) => 
       {!failed && !!m.followUps?.length && (
         <View style={s.followWrap}>
           <Text style={s.followHead}>이어서 물어보기</Text>
-          {m.followUps.map((q, k) => (
+          {m.followUps.slice(0, 2).map((q, k) => (
             <TouchableOpacity key={k} style={s.followChip} activeOpacity={0.85} onPress={() => onRetry(q)}>
               <Text style={s.followText}>{q}</Text><Text style={s.followArrow}>›</Text>
             </TouchableOpacity>
@@ -319,8 +312,7 @@ const s = StyleSheet.create({
   summary: { fontSize: 18, fontWeight: "800", color: T.ink, lineHeight: 26 },
   secTitle: { fontWeight: "800", color: T.ink, marginBottom: 3, fontSize: 15.5 },
   secBody: { color: T.ink, fontSize: 15, lineHeight: 22 },
-  uncertain: { backgroundColor: "#fbf6ea", borderWidth: 1, borderColor: "#eedec0", borderRadius: 13, padding: 12, marginTop: 12 },
-  uncertainText: { color: "#7a5b1e", fontSize: 13.5, lineHeight: 20 },
+  uncertainNote: { color: T.muted, fontSize: 12.5, lineHeight: 18, marginTop: 12 },
   retryBtn: { marginTop: 12, alignSelf: "flex-start", backgroundColor: T.brandSoft, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 10 },
   retryText: { color: T.brand, fontWeight: "800", fontSize: 15 },
   safety: { borderRadius: 18, borderWidth: 1, padding: 16, marginBottom: 12 },

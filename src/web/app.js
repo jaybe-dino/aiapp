@@ -53,10 +53,9 @@ function render() {
 
 // ---------- AI 도움 ----------
 const QUICK = [
-  { e: "💬", t: "생활비를 아끼고 싶어요" },
-  { e: "🛡️", t: "이거 사기 아닌가요? 원금 보장에 고수익이래요" },
-  { e: "🧳", t: "여행 싸게 가는 법 알려줘요" },
-  { e: "🚰", t: "정수기 렌탈을 알아봐요" },
+  { e: "💰", t: "생활비 아끼는 법" },
+  { e: "🛡️", t: "이거 사기인가요?" },
+  { e: "🧳", t: "여행 싸게 가기" },
 ];
 async function renderAI() {
   const w = await refreshWallet();
@@ -66,9 +65,7 @@ async function renderAI() {
     <div class="ai-chat">
       <div id="emptyState">
         <div id="proCard"></div>
-        <div class="hello">안녕하세요 👋</div><div class="h-big">무엇이 궁금하세요?</div>
-        <p class="voice-hint" style="text-align:left;margin:8px 0 16px">생활·건강·돈 문제까지, 무엇이든 편하게 물어보세요.<br>쉬운 말로 정리해 드릴게요.</p>
-        <button class="talk-btn" id="voice"><span class="mic">✏️</span><span class="tx"><b>눌러서 물어보기</b><span class="sub">궁금한 걸 그대로 적어 보세요</span></span><span class="arw">›</span></button>
+        <div id="hi"><div class="hello">안녕하세요 👋</div><div class="h-big">무엇이든 편하게<br>물어보세요</div></div>
         <div class="quick-head">이렇게 물어보세요</div>
         <div id="quicks"></div>
       </div>
@@ -81,12 +78,12 @@ async function renderAI() {
     </div>`));
   const quicks = v.querySelector("#quicks");
   QUICK.forEach((q) => { const b = el(`<button class="quick"><span class="e">${q.e}</span><span class="t">${q.t}</span></button>`); b.addEventListener("click", () => ask(q.t)); quicks.appendChild(b); });
-  v.querySelector("#voice").addEventListener("click", () => v.querySelector("#q").focus());
   v.querySelector("#send").addEventListener("click", () => ask());
   v.querySelector("#q").addEventListener("keydown", (e) => { if (e.key === "Enter") ask(); });
   // 오늘의 이야기(선제 대화) — 앱이 먼저 안부를 건넨다.
   api("/v1/proactive").then((p) => {
     const box = v.querySelector("#proCard"); if (!box || !p) return;
+    const hi = v.querySelector("#hi"); if (hi) hi.style.display = "none"; // 인사말 중복 제거(카드가 대신)
     box.appendChild(el(`<div class="pro-card">
       <div class="pro-head"><span class="pro-title">오늘의 이야기</span>${p.weather ? `<span class="pro-w">☀️ ${esc(p.weather.label)} ${p.weather.tempC}°</span>` : ""}</div>
       <div class="pro-msg">${esc(p.message)}</div>
@@ -147,7 +144,7 @@ function answerBlock(r) {
         <div class="ai-badge-row"><span class="ai-badge">AI</span><span class="muted" style="font-weight:700">AI 답변</span></div>
         <div class="summary">${esc(a.summary)}</div>
         ${sections}
-        ${a.uncertainty && a.uncertainty.message ? `<div class="uncertain">⚠️ ${esc(a.uncertainty.message)}</div>` : ""}
+        ${a.uncertainty && a.uncertainty.message ? `<div class="uncertain-note">ⓘ ${esc(a.uncertainty.message)}</div>` : ""}
       </div>
       <div id="ad"></div>
     </div>`);
@@ -173,7 +170,7 @@ function answerBlock(r) {
   // 후속 질문 유도 — 탭하면 이어서 물어봄
   if (Array.isArray(r.followUps) && r.followUps.length) {
     const fw = el(`<div class="follow-wrap"><div class="follow-head">이어서 물어보기</div></div>`);
-    r.followUps.forEach((q) => {
+    r.followUps.slice(0, 2).forEach((q) => {
       const c = el(`<button class="follow-chip"><span>${esc(q)}</span><span class="fa">›</span></button>`);
       c.addEventListener("click", () => ask(q));
       fw.appendChild(c);

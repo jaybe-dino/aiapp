@@ -250,3 +250,4 @@ button, .btn {
 .pro-msg { color: #fff; font-size: 1.05rem; font-weight: 700; line-height: 1.5; margin-bottom: 14px; }
 .pro-topic { display: block; width: 100%; text-align: left; background: rgba(255,255,255,.16); color: #fff; border-radius: 14px; padding: 13px 14px; font-weight: 800; font-size: 1rem; min-height: auto; }
 .pro-action { margin-top: 10px; background: #fff; color: var(--brand-dark); border-radius: 12px; padding: 10px 15px; font-weight: 900; font-size: .9rem; min-height: auto; width: auto; }
+.uncertain-note { color: var(--muted); font-size: .8rem; line-height: 1.5; margin-top: 12px; }
