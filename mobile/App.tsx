@@ -6,6 +6,7 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { T } from "./src/theme";
 import { onDemoMode } from "./src/api";
+import { hasClientLLM } from "./src/llm";
 import { bindOnboarding, initOnboarding, completeOnboarding } from "./src/onboarding";
 import { initFontScale } from "./src/fontscale";
 import Onboarding from "./src/screens/Onboarding";
@@ -24,10 +25,12 @@ function DemoBanner() {
   const [demo, setDemo] = useState(false);
   useEffect(() => onDemoMode(setDemo), []);
   if (!demo) return null;
+  // 실제 AI(클라이언트 키)가 연결됐는지 표시 — 정해진 답('도돌이표')인지 진짜 대화인지 구분.
+  const realAI = hasClientLLM;
   return (
-    <SafeAreaView edges={["top"]} style={{ backgroundColor: T.accent }}>
+    <SafeAreaView edges={["top"]} style={{ backgroundColor: realAI ? T.brand : T.accent }}>
       <Text style={{ color: "#fff", textAlign: "center", paddingVertical: 6, fontSize: 12.5, fontWeight: "700" }}>
-        데모 모드 · 서버 없이 체험 중 (실제 보상·저장 없음)
+        {realAI ? "데모 모드 · 실제 AI 대화 연결됨 ✓" : "데모 모드 · 예시 답변 (실제 AI 미연결)"}
       </Text>
     </SafeAreaView>
   );

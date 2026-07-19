@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
   View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, Animated, Easing,
-  KeyboardAvoidingView, Platform, LayoutAnimation, UIManager, Linking,
+  KeyboardAvoidingView, Platform, LayoutAnimation, UIManager, Linking, Keyboard,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { T, won } from "../theme";
@@ -50,6 +50,7 @@ export default function AIScreen() {
     const question = (q ?? text).trim();
     if (!question || busy) return;
     setText("");
+    Keyboard.dismiss(); // 보내면 키패드를 닫아 답변을 편히 읽게(시니어 가독성)
     ease();
     setMessages((m) => [...m, { role: "user", text: question }, { role: "loading" }]);
     setBusy(true);
@@ -88,7 +89,7 @@ export default function AIScreen() {
 
   return (
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: T.bg }} behavior={Platform.OS === "ios" ? "padding" : undefined} keyboardVerticalOffset={90}>
-      <ScrollView ref={scrollRef} style={{ flex: 1 }} contentContainerStyle={{ padding: 18, paddingBottom: 10 }} keyboardShouldPersistTaps="handled" onContentSizeChange={scrollToEnd} showsVerticalScrollIndicator={false}>
+      <ScrollView ref={scrollRef} style={{ flex: 1 }} contentContainerStyle={{ padding: 18, paddingBottom: 10 }} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" onContentSizeChange={scrollToEnd} showsVerticalScrollIndicator={false}>
         {empty ? (
           <View>
             <Text style={s.hello}>안녕하세요 👋</Text>
