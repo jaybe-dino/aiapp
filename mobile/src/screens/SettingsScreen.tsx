@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Switch, Alert, Modal, LayoutAnimation, Platform, UIManager } from "react-native";
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Switch, Alert, Modal, LayoutAnimation, Platform, UIManager, TextInput } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { T } from "../theme";
 import { Api, demoMode } from "../api";
@@ -20,6 +20,7 @@ const FAQ: { q: string; a: string }[] = [
 
 // 철회 가능한 선택 동의(필수 동의는 서비스 이용에 필요하여 토글 대상 아님).
 const OPTIONAL: { purpose: string; title: string; desc: string }[] = [
+  { purpose: "location", title: "위치(동네) 사용", desc: "동네 날씨 등 ‘오늘의 이야기’를 더 맞춤으로 건네드려요. 정밀 위치가 아니라 동네만 사용합니다." },
   { purpose: "third_party", title: "개인정보 제3자 제공", desc: "렌탈 등 상담 신청 시 이름·연락처·주소를 제휴사에 전달하는 데 동의합니다. 끄면 상담 신청이 제한됩니다." },
   { purpose: "personalized_ads", title: "맞춤 혜택 추천", desc: "대화 맥락에 맞는 혜택·미션을 추천받습니다. 끄면 일반 안내만 제공됩니다." },
   { purpose: "marketing", title: "혜택·이벤트 알림", desc: "새로운 혜택·이벤트 소식을 받습니다." },
@@ -31,6 +32,7 @@ export default function SettingsScreen() {
   const [doc, setDoc] = useState<null | "terms" | "privacy">(null);
   const [faqOpen, setFaqOpen] = useState<number | null>(null);
   const [scale, setScale] = useState(currentScale());
+  const [region, setRegion] = useState("");
   useEffect(() => onFontScale(setScale), []);
 
   const load = useCallback(async () => {
@@ -40,7 +42,13 @@ export default function SettingsScreen() {
       r.consents.forEach((c) => { map[c.purpose] = !!c.granted; });
       setGranted(map);
     } catch { /* noop */ }
+    try { const m = await Api.me(); setRegion(m.region ?? ""); } catch { /* noop */ }
   }, []);
+
+  async function saveRegion() {
+    try { await Api.setRegion(region.trim() || null); Alert.alert("저장됨", "동네가 저장됐어요. ‘오늘의 이야기’에 반영돼요."); }
+    catch { Alert.alert("오류", "잠시 후 다시 시도해주세요."); }
+  }
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   async function toggle(purpose: string, next: boolean) {
@@ -72,6 +80,18 @@ export default function SettingsScreen() {
             <Text style={[s.scaleBtnText, Math.abs(scale - sc.value) < 0.01 && s.scaleBtnTextOn, { fontSize: 14 * sc.value }]}>{sc.label}</Text>
           </TouchableOpacity>
         ))}
+      </View>
+
+      <Text style={s.sectionH}>내 동네</Text>
+      <View style={s.card}>
+        <View style={{ paddingVertical: 14 }}>
+          <Text style={s.consentTitle}>동네 설정</Text>
+          <Text style={s.consentDesc}>날씨 등 ‘오늘의 이야기’를 동네에 맞춰 드려요.</Text>
+          <View style={{ flexDirection: "row", gap: 8, marginTop: 10 }}>
+            <TextInput style={s.regionInput} placeholder="예: 서울 마포구" placeholderTextColor={T.muted} value={region} onChangeText={setRegion} />
+            <TouchableOpacity style={s.regionSave} onPress={saveRegion} activeOpacity={0.85}><Text style={s.regionSaveText}>저장</Text></TouchableOpacity>
+          </View>
+        </View>
       </View>
 
       <Text style={s.sectionH}>개인정보·동의 관리</Text>
@@ -166,6 +186,9 @@ const s = StyleSheet.create({
   scaleBtnOn: { backgroundColor: T.brandSoft, borderColor: T.brand },
   scaleBtnText: { fontWeight: "800", color: T.ink },
   scaleBtnTextOn: { color: T.brand },
+  regionInput: { flex: 1, borderWidth: 1, borderColor: T.line, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15.5, color: T.ink, backgroundColor: T.bg },
+  regionSave: { backgroundColor: T.brand, borderRadius: 12, paddingHorizontal: 18, justifyContent: "center" },
+  regionSaveText: { color: "#fff", fontWeight: "800", fontSize: 15 },
   card: { backgroundColor: T.card, borderRadius: 18, borderWidth: 1, borderColor: T.line, paddingHorizontal: 16 },
   consentRow: { flexDirection: "row", alignItems: "center", paddingVertical: 15 },
   rowDivider: { borderBottomWidth: 1, borderBottomColor: T.line },

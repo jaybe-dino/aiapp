@@ -241,3 +241,12 @@ button, .btn {
 .follow-chip { display: flex; align-items: center; justify-content: space-between; width: 100%; text-align: left; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 13px 15px; margin-bottom: 8px; font-weight: 700; color: var(--brand-dark); font-size: .98rem; }
 .follow-chip .fa { color: var(--muted); font-weight: 300; font-size: 1.2rem; }
 .follow-chip:active { background: var(--brand-soft); }
+
+/* 오늘의 이야기(선제 대화) */
+.pro-card { background: var(--brand); border-radius: 20px; padding: 18px; margin-bottom: 20px; box-shadow: 0 10px 26px rgba(14,122,95,.28); }
+.pro-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.pro-title { color: rgba(255,255,255,.9); font-weight: 800; font-size: .82rem; }
+.pro-w { color: #fff; font-weight: 800; font-size: .82rem; }
+.pro-msg { color: #fff; font-size: 1.05rem; font-weight: 700; line-height: 1.5; margin-bottom: 14px; }
+.pro-topic { display: block; width: 100%; text-align: left; background: rgba(255,255,255,.16); color: #fff; border-radius: 14px; padding: 13px 14px; font-weight: 800; font-size: 1rem; min-height: auto; }
+.pro-action { margin-top: 10px; background: #fff; color: var(--brand-dark); border-radius: 12px; padding: 10px 15px; font-weight: 900; font-size: .9rem; min-height: auto; width: auto; }

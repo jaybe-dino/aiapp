@@ -65,6 +65,7 @@ async function renderAI() {
   v.appendChild(el(`
     <div class="ai-chat">
       <div id="emptyState">
+        <div id="proCard"></div>
         <div class="hello">안녕하세요 👋</div><div class="h-big">무엇이 궁금하세요?</div>
         <p class="voice-hint" style="text-align:left;margin:8px 0 16px">생활·건강·돈 문제까지, 무엇이든 편하게 물어보세요.<br>쉬운 말로 정리해 드릴게요.</p>
         <button class="talk-btn" id="voice"><span class="mic">✏️</span><span class="tx"><b>눌러서 물어보기</b><span class="sub">궁금한 걸 그대로 적어 보세요</span></span><span class="arw">›</span></button>
@@ -83,6 +84,19 @@ async function renderAI() {
   v.querySelector("#voice").addEventListener("click", () => v.querySelector("#q").focus());
   v.querySelector("#send").addEventListener("click", () => ask());
   v.querySelector("#q").addEventListener("keydown", (e) => { if (e.key === "Enter") ask(); });
+  // 오늘의 이야기(선제 대화) — 앱이 먼저 안부를 건넨다.
+  api("/v1/proactive").then((p) => {
+    const box = v.querySelector("#proCard"); if (!box || !p) return;
+    box.appendChild(el(`<div class="pro-card">
+      <div class="pro-head"><span class="pro-title">오늘의 이야기</span>${p.weather ? `<span class="pro-w">☀️ ${esc(p.weather.label)} ${p.weather.tempC}°</span>` : ""}</div>
+      <div class="pro-msg">${esc(p.message)}</div>
+      <button class="pro-topic">💬 ${esc(p.topic)}</button>
+      ${p.action ? `<button class="pro-action">${esc(p.action.label)} ›</button>` : ""}
+    </div>`));
+    box.querySelector(".pro-topic").addEventListener("click", () => ask(p.topic));
+    const act = box.querySelector(".pro-action");
+    if (act) act.addEventListener("click", () => { const map = { "걷기": "walk", "내보상": "reward" }; document.querySelector(`#tabbar button[data-tab="${map[p.action.tab] || p.action.tab}"]`)?.click(); });
+  }).catch(() => {});
   // 이미 진행 중인 대화가 있으면(탭 전환 후 복귀) 대화 내용을 유지 렌더
   if (chatLog.length) { document.querySelector("#emptyState").style.display = "none"; chatLog.forEach((node) => document.querySelector("#thread").appendChild(node)); scrollChatToEnd(); }
 }
@@ -459,6 +473,7 @@ const FAQ_ITEMS = [
   { q: "쿠폰은 어떻게 쓰나요?", a: "‘내 보상’에서 교환하면 쿠폰번호가 나와요. 편의점·온라인에서 사용할 수 있어요." },
 ];
 const OPTIONAL_CONSENTS = [
+  { purpose: "location", title: "위치(동네) 사용", desc: "동네 날씨 등 '오늘의 이야기'를 더 맞춤으로 건네드려요. 정밀 위치가 아니라 동네만 사용해요." },
   { purpose: "third_party", title: "개인정보 제3자 제공", desc: "렌탈 등 상담 신청 시 이름·연락처·주소를 제휴사에 전달합니다. 끄면 상담 신청이 제한됩니다." },
   { purpose: "personalized_ads", title: "맞춤 혜택 추천", desc: "대화 맥락에 맞는 혜택·미션을 추천받습니다. 끄면 일반 안내만 제공됩니다." },
   { purpose: "marketing", title: "혜택·이벤트 알림", desc: "새로운 혜택·이벤트 소식을 받습니다." },
@@ -490,6 +505,20 @@ async function renderSettings() {
   });
   v.appendChild(card);
   v.appendChild(el(`<div class="sub" style="margin-top:8px">동의는 언제든 켜고 끌 수 있어요. 끄면 즉시 반영됩니다.</div>`));
+
+  // 동네(위치) 설정 — 오늘의 이야기 날씨 맥락.
+  let me = {};
+  try { me = await api("/v1/me"); } catch { /* noop */ }
+  v.appendChild(el(`<div class="set-sec">내 동네</div>`));
+  const regionCard = el(`<div class="card set-card">
+    <div class="set-consent"><div class="tx"><div class="ct">동네 설정</div><div class="cd">날씨 등 오늘의 이야기를 동네에 맞춰 드려요.</div></div></div>
+    <div style="display:flex;gap:8px;padding:0 0 14px"><input id="regionInput" placeholder="예: 서울 마포구" value="${esc(me.region || "")}" style="flex:1;font:inherit;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--ink)"/><button class="btn" id="regionSave" style="width:auto;min-height:auto;padding:10px 16px;background:var(--brand);color:#fff">저장</button></div>
+  </div>`);
+  regionCard.querySelector("#regionSave").addEventListener("click", async () => {
+    try { await api("/v1/me/region", { method: "PUT", body: JSON.stringify({ region: regionCard.querySelector("#regionInput").value.trim() || null }) }); toast("동네 저장됨"); }
+    catch { toast("저장 실패"); }
+  });
+  v.appendChild(regionCard);
 
   v.appendChild(el(`<div class="set-sec">도움말 · 자주 묻는 질문</div>`));
   const faq = el(`<div class="card set-card"></div>`);

@@ -3,9 +3,10 @@ import {
   View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, Animated, Easing,
   KeyboardAvoidingView, Platform, LayoutAnimation, UIManager, Linking, Keyboard,
 } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import { useCallback } from "react";
 import { T, won } from "../theme";
-import { Api, OfferCard as Offer, NeedLevel, RewardNudge, SafetyNotice } from "../api";
+import { Api, OfferCard as Offer, NeedLevel, RewardNudge, SafetyNotice, Proactive } from "../api";
 import { onFontScale } from "../fontscale";
 import OfferCard from "../components/OfferCard";
 
@@ -38,11 +39,14 @@ export default function AIScreen() {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [busy, setBusy] = useState(false);
   const [fs, setFs] = useState(1);
+  const [pro, setPro] = useState<Proactive | null>(null);
   const convId = useRef<string | null>(null);
   const scrollRef = useRef<ScrollView>(null);
   const inputRef = useRef<TextInput>(null);
 
   useEffect(() => onFontScale(setFs), []);
+  // 앱이 먼저 건네는 '오늘의 이야기' — 대화 없을 때 홈에서 안부를 전한다.
+  useFocusEffect(useCallback(() => { Api.proactive().then(setPro).catch(() => {}); }, []));
 
   const scrollToEnd = () => setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 70);
 
@@ -92,6 +96,23 @@ export default function AIScreen() {
       <ScrollView ref={scrollRef} style={{ flex: 1 }} contentContainerStyle={{ padding: 18, paddingBottom: 10 }} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" onContentSizeChange={scrollToEnd} showsVerticalScrollIndicator={false}>
         {empty ? (
           <View>
+            {pro && (
+              <View style={s.proCard}>
+                <View style={s.proHead}>
+                  <Text style={s.proTitle}>오늘의 이야기</Text>
+                  {pro.weather && <Text style={s.proWeather}>☀️ {pro.weather.label} {pro.weather.tempC}°</Text>}
+                </View>
+                <Text style={s.proMsg}>{pro.message}</Text>
+                <TouchableOpacity style={s.proTopic} activeOpacity={0.85} onPress={() => ask(pro.topic)}>
+                  <Text style={s.proTopicText}>💬 {pro.topic}</Text>
+                </TouchableOpacity>
+                {pro.action && (
+                  <TouchableOpacity style={s.proAction} activeOpacity={0.85} onPress={() => goTab(pro.action!.tab)}>
+                    <Text style={s.proActionText}>{pro.action.label} ›</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
             <Text style={s.hello}>안녕하세요 👋</Text>
             <Text style={s.h}>무엇이 궁금하세요?</Text>
             <Text style={s.lead}>생활·건강·돈 문제까지, 무엇이든 편하게{"\n"}물어보세요. 쉬운 말로 정리해 드릴게요.</Text>
@@ -260,6 +281,15 @@ function TypingDots() {
 
 const s = StyleSheet.create({
   headRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 },
+  proCard: { backgroundColor: T.brand, borderRadius: 22, padding: 18, marginBottom: 22, shadowColor: T.brand, shadowOpacity: 0.25, shadowRadius: 16, shadowOffset: { width: 0, height: 8 }, elevation: 5 },
+  proHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 },
+  proTitle: { color: "rgba(255,255,255,0.9)", fontWeight: "800", fontSize: 13 },
+  proWeather: { color: "#fff", fontWeight: "800", fontSize: 13 },
+  proMsg: { color: "#fff", fontSize: 17, fontWeight: "700", lineHeight: 25, marginBottom: 14 },
+  proTopic: { backgroundColor: "rgba(255,255,255,0.16)", borderRadius: 14, paddingVertical: 13, paddingHorizontal: 14 },
+  proTopicText: { color: "#fff", fontWeight: "800", fontSize: 15.5, lineHeight: 22 },
+  proAction: { marginTop: 10, alignSelf: "flex-start", backgroundColor: "#fff", borderRadius: 12, paddingVertical: 10, paddingHorizontal: 15 },
+  proActionText: { color: T.brandDark, fontWeight: "900", fontSize: 14.5 },
   hello: { color: T.muted, fontSize: 16, fontWeight: "700", marginBottom: 4 },
   h: { fontSize: 32, fontWeight: "900", color: T.ink, lineHeight: 40 },
   walletPill: { backgroundColor: T.brandSoft, borderRadius: 18, paddingHorizontal: 15, paddingVertical: 9, alignItems: "center", marginTop: 4 },

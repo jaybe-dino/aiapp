@@ -10,6 +10,7 @@ const state = {
   rewards: [] as any[],
   steps: 0,
   claimed: new Set<number>(),
+  region: null as string | null,
 };
 
 function rid(p: string) { return p + "_" + Math.random().toString(36).slice(2, 10); }
@@ -206,6 +207,23 @@ export const MockApi = {
     ] };
   },
   async logout() { return { ok: true }; },
+  async me() { return { region: state.region, display_name: "게스트" }; },
+  async setRegion(region: string | null) { state.region = region; return { region }; },
+  async proactive() {
+    const pod = new Date().getHours() < 11 ? "아침" : new Date().getHours() < 17 ? "낮" : "저녁";
+    const w = state.region ? { label: "맑음", tempC: 18 } : null;
+    const parts = [`좋은 ${pod}이에요.`];
+    if (w) parts.push(`${state.region}은 지금 ${w.label}, ${w.tempC}도예요. 산책하기 좋은 날이에요.`);
+    if (state.wallet.available >= 3000) parts.push("모아둔 포인트로 쿠폰을 바꿀 수 있어요.");
+    else if (state.wallet.pending > 0) parts.push("확인 중인 보상이 곧 사용 가능으로 바뀔 거예요.");
+    return {
+      greeting: "안녕하세요 👋",
+      message: parts.join(" "),
+      topic: pod === "아침" ? "오늘 하루 어떻게 보내면 좋을지 같이 계획해볼까요?" : "점심 뭐 드셨어요? 저녁 메뉴 같이 골라볼까요?",
+      action: state.wallet.available >= 3000 ? { label: "쿠폰으로 교환", tab: "내보상" } : null,
+      weather: w,
+    };
+  },
   async submitLead(_s: string, _lead: any) {
     addReward("렌탈 보상", "rental_cpa", 40000, false);
     return { lead_id: rid("led"), click_id: rid("clk"), advertiser_name: "○○웰스" };

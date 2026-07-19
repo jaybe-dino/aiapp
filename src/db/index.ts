@@ -24,6 +24,8 @@ function migrate() {
   const cols = (db.prepare("PRAGMA table_info(answers)").all() as { name: string }[]).map((c) => c.name);
   if (!cols.includes("need_level")) db.exec("ALTER TABLE answers ADD COLUMN need_level TEXT");
   if (!cols.includes("reward_nudge")) db.exec("ALTER TABLE answers ADD COLUMN reward_nudge TEXT");
+  const ucols = (db.prepare("PRAGMA table_info(users)").all() as { name: string }[]).map((c) => c.name);
+  if (!ucols.includes("region")) db.exec("ALTER TABLE users ADD COLUMN region TEXT");
 }
 
 /**

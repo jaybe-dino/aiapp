@@ -80,6 +80,13 @@ export interface SafetyNotice {
   body: string;
   resources?: { label: string; value: string }[];
 }
+export interface Proactive {
+  greeting: string;
+  message: string;
+  topic: string;
+  action: { label: string; tab: string } | null;
+  weather: { label: string; tempC: number } | null;
+}
 export interface AskResult {
   answerSnapshotId: string;
   answer: {
@@ -125,6 +132,15 @@ const RealApi = {
   },
   async consents() {
     return req<{ consents: { purpose: string; granted: number; policy_version: string; updated_at: string }[] }>("/v1/consents");
+  },
+  async proactive() {
+    return req<Proactive>("/v1/proactive");
+  },
+  async setRegion(region: string | null) {
+    return req<{ region: string | null }>("/v1/me/region", { method: "PUT", body: JSON.stringify({ region }) });
+  },
+  async me() {
+    return req<{ region: string | null; display_name: string }>("/v1/me");
   },
   async logout() {
     TOKEN = null;

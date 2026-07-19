@@ -24,8 +24,9 @@ import { userWallet, assertLedgerBalanced } from "./modules/ledger/ledger.js";
 import { listRewards, getReward, rewardTimeline, approve, makeAvailable, reverse } from "./modules/reward/reward.js";
 import { requestPayout, getPayout, listPayouts } from "./modules/payout/payout.js";
 import { syncSteps, claimMilestone, todayStatus } from "./modules/cashwalk/cashwalk.js";
-import { guestLogin, phoneStart, phoneVerify, getUser, listConsents, setConsent, hasConsent } from "./modules/auth/auth.js";
+import { guestLogin, phoneStart, phoneVerify, getUser, listConsents, setConsent, hasConsent, setRegion } from "./modules/auth/auth.js";
 import { logEvent, funnelSummary } from "./modules/analytics/events.js";
+import { buildProactive } from "./modules/proactive/proactive.js";
 
 /** 인증된 사용자 ID를 해석한다. 없으면 401. */
 function uid(req: FastifyRequest): string {
@@ -95,8 +96,15 @@ export function registerRoutes(app: FastifyInstance) {
   app.get("/v1/me", async (req) => {
     const u = getUser(uid(req));
     if (!u) throw Problems.notFound("사용자");
-    return { user_id: u.user_id, display_name: u.display_name, age_band: u.age_band, font_scale: u.font_scale, tts_enabled: !!u.tts_enabled };
+    return { user_id: u.user_id, display_name: u.display_name, age_band: u.age_band, font_scale: u.font_scale, tts_enabled: !!u.tts_enabled, region: u.region ?? null };
   });
+  // 동네(시/구) 설정 — 선제 대화의 위치 맥락. 정밀 좌표 미저장(지역명만).
+  app.put("/v1/me/region", async (req: FastifyRequest<{ Body: { region?: string | null } }>) => {
+    return setRegion(uid(req), req.body?.region ?? null);
+  });
+
+  // 선제 대화(오늘의 이야기) — 앱이 먼저 건네는 안부 + 대화 시작 주제 + 바로가기.
+  app.get("/v1/proactive", async (req) => buildProactive(uid(req)));
 
   // --- 동의 -----------------------------------------------------------
   app.get("/v1/consents", async (req) => ({ consents: listConsents(uid(req)) }));

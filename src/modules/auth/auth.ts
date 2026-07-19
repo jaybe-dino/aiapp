@@ -10,11 +10,19 @@ interface UserRow {
   age_band: string;
   font_scale: number;
   tts_enabled: number;
+  region: string | null;
   created_at: string;
 }
 
 export function getUser(userId: string): UserRow | undefined {
   return db.prepare("SELECT * FROM users WHERE user_id = ?").get(userId) as UserRow | undefined;
+}
+
+/** 동네(시/구) 설정 — 선제 대화의 위치 맥락(날씨 등). 정밀 좌표가 아니라 지역명만 저장. */
+export function setRegion(userId: string, region: string | null): { region: string | null } {
+  const r = region ? region.slice(0, 40) : null;
+  db.prepare("UPDATE users SET region = ? WHERE user_id = ?").run(r, userId);
+  return { region: r };
 }
 
 function createUser(displayName: string): UserRow {
@@ -107,7 +115,7 @@ export function listConsents(userId: string) {
   return db.prepare("SELECT purpose, granted, policy_version, updated_at FROM consents WHERE user_id = ?").all(userId);
 }
 export function setConsent(userId: string, purpose: string, granted: boolean) {
-  const valid = ["service", "conversation_store", "personalized_ads", "marketing", "third_party"];
+  const valid = ["service", "conversation_store", "personalized_ads", "marketing", "third_party", "location"];
   if (!valid.includes(purpose)) throw Problems.badRequest("알 수 없는 동의 항목입니다.");
   db.prepare(
     "INSERT INTO consents (user_id, purpose, granted, policy_version, updated_at) VALUES (?, ?, ?, 'v1.0', ?) ON CONFLICT(user_id, purpose) DO UPDATE SET granted = excluded.granted, updated_at = excluded.updated_at"

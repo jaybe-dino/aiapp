@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS users (
   age_band       TEXT NOT NULL DEFAULT '55-69',
   font_scale     REAL NOT NULL DEFAULT 1.2,
   tts_enabled    INTEGER NOT NULL DEFAULT 1,
+  region         TEXT,                      -- 동네(시/구). 선제 대화의 위치 맥락(날씨 등). 선택.
   created_at     TEXT NOT NULL
 );
 
