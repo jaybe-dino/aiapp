@@ -7,11 +7,9 @@ import { db } from "../../db/index.js";
 import { id, now } from "../../lib/id.js";
 import { Problems } from "../../lib/problem.js";
 import { ingestConversion } from "../attribution/attribution.js";
-
-export const STEP_PER_MILESTONE = 1000; // 마일스톤 단위
-export const DAILY_STEP_CAP = 20000; // 하루 보상 인정 상한
-export const REWARD_PER_MILESTONE = 20; // 마일스톤당 보상(원)
-export const MAX_MILESTONES_PER_DAY = Math.floor(DAILY_STEP_CAP / STEP_PER_MILESTONE);
+import { adNetwork } from "../monetization/index.js";
+export { STEP_PER_MILESTONE, DAILY_STEP_CAP, REWARD_PER_MILESTONE, MAX_MILESTONES_PER_DAY } from "./constants.js";
+import { STEP_PER_MILESTONE, DAILY_STEP_CAP, REWARD_PER_MILESTONE, MAX_MILESTONES_PER_DAY } from "./constants.js";
 
 interface DayRow {
   user_id: string;
@@ -74,7 +72,9 @@ export function claimMilestone(p: {
     .get(p.userId, p.dayKey) as DayRow | undefined;
   if (!day) throw Problems.badRequest("먼저 걸음수를 동기화하세요.");
   if (!day.integrity_ok) throw Problems.conflict("기기 무결성 확인이 필요합니다.", "루팅/에뮬레이터/센서 조작 의심");
-  if (!p.adImpressionId) throw Problems.badRequest("광고 시청 후 보상을 받을 수 있어요.");
+  // 광고 시청 증적 검증(수익화 어댑터). 샘플 광고망은 impression id 존재만 확인, 실연동은 SSV.
+  const adCheck = adNetwork.verifyImpression(p.adImpressionId, { userId: p.userId, milestone: p.milestone });
+  if (!adCheck.ok) throw Problems.badRequest("광고 시청 후 보상을 받을 수 있어요.");
 
   if (p.milestone < 1 || p.milestone > MAX_MILESTONES_PER_DAY) throw Problems.badRequest("유효하지 않은 마일스톤입니다.");
   const unlocked = Math.floor(day.steps / STEP_PER_MILESTONE);
@@ -88,7 +88,7 @@ export function claimMilestone(p: {
   const claimId = id("cwc");
   const externalConversionId = `${p.userId}:${p.dayKey}:${p.milestone}`;
   const reward = REWARD_PER_MILESTONE;
-  const grossFromAd = REWARD_PER_MILESTONE * 2; // CPM 수취액 예시(플랫폼 마진 확보)
+  const grossFromAd = adNetwork.grossForMilestone(p.milestone); // 광고망 CPM 수취액(어댑터)
 
   // 자체 광고망 전환으로 원장에 연결(수익 - 보상 = 마진)
   const conv = ingestConversion(

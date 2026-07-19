@@ -1,6 +1,8 @@
 // 데모용 시드 데이터. `npm run seed` 또는 서버 첫 기동 시 자동 실행.
+// 공급사·오퍼(수익화 카탈로그)는 monetization 샘플 소스에서 가져온다(추후 실연동 시 교체 지점 일원화).
 import { db, applySchema } from "./index.js";
-import { id, now } from "../lib/id.js";
+import { now } from "../lib/id.js";
+import { sampleOfferSource, syncCatalog } from "../modules/monetization/catalog.js";
 
 export function seed() {
   applySchema();
@@ -32,179 +34,10 @@ export function seed() {
     db.prepare("INSERT INTO admin_users (admin_id, email, name, role, token, created_at) VALUES (?, ?, ?, ?, ?, ?)").run(a.id, a.email, a.name, a.role, a.token, ts);
   }
 
-  // 공급사
-  const suppliers = [
-    { id: "sup_linkprice", name: "LinkPrice", type: "shopping_cps", reward: 1 },
-    { id: "sup_offerwall", name: "리워드오퍼월", type: "offerwall_cpa", reward: 1 },
-    { id: "sup_walk_adnet", name: "걷기광고망", type: "walk_ad", reward: 1 },
-    { id: "sup_rental", name: "렌탈제휴망", type: "rental_cpa", reward: 1 }, // 정수기/비데 등 렌탈 CPA
-    { id: "sup_coupang", name: "쿠팡파트너스", type: "shopping_cps", reward: 0 }, // 리워드 트래픽 미승인 예시
-  ];
-  for (const s of suppliers) {
-    db.prepare(
-      "INSERT INTO suppliers (supplier_id, name, type, reward_traffic_allowed, hmac_secret) VALUES (?, ?, ?, ?, ?)"
-    ).run(s.id, s.name, s.type, s.reward, "dev-supplier-secret-change-me");
-  }
+  // 공급사·오퍼(수익화 샘플 카탈로그) — 실연동 시 monetization/catalog.ts 의 소스만 교체.
+  const cat = syncCatalog(sampleOfferSource);
 
-  // 오퍼 + 조건 스냅샷
-  const offers = [
-    {
-      offer_id: "off_busan_hotel",
-      supplier_id: "sup_linkprice",
-      category: "travel",
-      title: "부산 해운대 호텔 2박",
-      advertiser_name: "○○여행",
-      landing_domain: "travel.example.com",
-      price_band: "high",
-      high_risk: 0,
-      total_cost: 180000,
-      reward_amount: 4000,
-      commission_amount: 9000,
-      approval_window: "여행 종료 후 7~14일",
-      cancel_terms: "체크인 3일 전까지 무료 취소, 이후 적립 취소",
-      auto_renewal: 0,
-      data_sharing: "없음",
-    },
-    {
-      offer_id: "off_shopping_air",
-      supplier_id: "sup_linkprice",
-      category: "shopping",
-      title: "공기청정기 필터 정기배송",
-      advertiser_name: "△△리빙",
-      landing_domain: "shop.example.com",
-      price_band: "mid",
-      high_risk: 0,
-      total_cost: 39000,
-      reward_amount: 1200,
-      commission_amount: 2600,
-      approval_window: "구매 확정 후 7일",
-      cancel_terms: "반품 시 적립 취소",
-      auto_renewal: 1,
-      data_sharing: "없음",
-    },
-    {
-      offer_id: "off_survey_life",
-      supplier_id: "sup_offerwall",
-      category: "survey",
-      title: "생활습관 설문(약 3분)",
-      advertiser_name: "□□리서치",
-      landing_domain: "survey.example.com",
-      price_band: "low",
-      high_risk: 0,
-      total_cost: 0,
-      reward_amount: 300,
-      commission_amount: 500,
-      approval_window: "설문 완료 확인 후 1~2일",
-      cancel_terms: "중복/불성실 응답 시 적립 취소",
-      auto_renewal: 0,
-      data_sharing: "설문 응답(비식별)",
-    },
-    {
-      offer_id: "off_loan_bad",
-      supplier_id: "sup_offerwall",
-      category: "finance",
-      title: "간편 대출 비교",
-      advertiser_name: "◇◇파이낸스",
-      landing_domain: "loan.example.com",
-      price_band: "high",
-      high_risk: 1, // 고위험 → 자동추천 제외됨(안전엔진/후보필터)
-      total_cost: 0,
-      reward_amount: 5000,
-      commission_amount: 12000,
-      approval_window: "심사 후 14일",
-      cancel_terms: "미승인 시 미적립",
-      auto_renewal: 0,
-      data_sharing: "연락처·소득정보",
-    },
-    // ===== 렌탈(구독형) 오퍼: 정수기/비데/공기청정기 등 =====
-    {
-      offer_id: "off_rental_water",
-      supplier_id: "sup_rental",
-      category: "rental",
-      title: "정수기 렌탈 (냉·온·정)",
-      advertiser_name: "○○웰스",
-      landing_domain: "rental.example.com",
-      price_band: "mid",
-      high_risk: 0,
-      total_cost: 466200, // 총 소유비용 = 월 25,900 × 18개월(예시 표기)
-      reward_amount: 40000, // 계약 성사 시 큰 보상
-      commission_amount: 90000,
-      approval_window: "설치 완료 후 30~45일",
-      cancel_terms: "의무사용기간 내 해지 시 위약금 발생, 보상 취소",
-      auto_renewal: 1, // 정기결제 — 자동결제 경고 필요
-      data_sharing: "이름·연락처·설치주소(설치 상담용)",
-      monthly_fee: 25900,
-      contract_months: 36,
-      mandatory_months: 18,
-    },
-    {
-      offer_id: "off_rental_bidet",
-      supplier_id: "sup_rental",
-      category: "rental",
-      title: "비데 렌탈 (온수 세정)",
-      advertiser_name: "△△매직",
-      landing_domain: "rental.example.com",
-      price_band: "low",
-      high_risk: 0,
-      total_cost: 190800,
-      reward_amount: 25000,
-      commission_amount: 55000,
-      approval_window: "설치 완료 후 30일",
-      cancel_terms: "의무사용기간 내 해지 시 위약금, 보상 취소",
-      auto_renewal: 1,
-      data_sharing: "이름·연락처·설치주소(설치 상담용)",
-      monthly_fee: 10600,
-      contract_months: 36,
-      mandatory_months: 12,
-    },
-    {
-      offer_id: "off_rental_air",
-      supplier_id: "sup_rental",
-      category: "rental",
-      title: "공기청정기 렌탈",
-      advertiser_name: "○○웰스",
-      landing_domain: "rental.example.com",
-      price_band: "mid",
-      high_risk: 0,
-      total_cost: 356400,
-      reward_amount: 33000,
-      commission_amount: 72000,
-      approval_window: "설치 완료 후 30~45일",
-      cancel_terms: "의무사용기간 내 해지 시 위약금, 보상 취소",
-      auto_renewal: 1,
-      data_sharing: "이름·연락처·설치주소(설치 상담용)",
-      monthly_fee: 16500,
-      contract_months: 36,
-      mandatory_months: 18,
-    },
-  ] as any[];
-
-  for (const o of offers) {
-    db.prepare(
-      `INSERT INTO offers (offer_id, supplier_id, category, title, advertiser_name, landing_domain, region, price_band, status, reward_eligible, high_risk)
-       VALUES (?, ?, ?, ?, ?, ?, 'KR', ?, 'active', 1, ?)`
-    ).run(o.offer_id, o.supplier_id, o.category, o.title, o.advertiser_name, o.landing_domain, o.price_band, o.high_risk);
-    db.prepare(
-      `INSERT INTO offer_versions (offer_snapshot_id, offer_id, total_cost, reward_amount, commission_amount, approval_window, cancel_terms, auto_renewal, data_sharing, monthly_fee, contract_months, mandatory_months, effective_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    ).run(
-      id("ofs"),
-      o.offer_id,
-      o.total_cost,
-      o.reward_amount,
-      o.commission_amount,
-      o.approval_window,
-      o.cancel_terms,
-      o.auto_renewal,
-      o.data_sharing,
-      o.monthly_fee ?? null,
-      o.contract_months ?? null,
-      o.mandatory_months ?? null,
-      ts
-    );
-  }
-
-  console.log("[seed] 데모 데이터 생성 완료 (user=usr_demo)");
+  console.log(`[seed] 데모 데이터 생성 완료 (user=usr_demo, 공급사 ${cat.suppliers}, 오퍼 ${cat.addedOffers})`);
 }
 
 // 직접 실행 시

@@ -25,6 +25,8 @@ export const config = {
   supplierHmacSecret: process.env.SUPPLIER_HMAC_SECRET ?? "dev-supplier-secret-change-me",
   clickSigningSecret: process.env.CLICK_SIGNING_SECRET ?? "dev-click-secret-change-me",
   couponProviderMode: (process.env.COUPON_PROVIDER_MODE ?? "success") as "success" | "fail" | "unknown",
+  // 수익화 소스: sample(내장 샘플 카탈로그·광고망) | live(실제 제휴 API — 추후 연동).
+  monetizationMode: (process.env.MONETIZATION_MODE ?? "sample") as "sample" | "live",
   // 세션 토큰 서명 비밀. 운영에선 반드시 환경변수로 주입.
   sessionSecret: process.env.SESSION_SECRET ?? "dev-session-secret-change-me",
   // 개인정보(리드 연락처·주소) 필드 암호화 키. 운영에선 KMS 관리.
