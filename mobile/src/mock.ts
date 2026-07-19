@@ -1,6 +1,7 @@
 // 오프라인 데모 목업 — 백엔드 없이 앱 전체 흐름을 체험하기 위한 인메모리 구현.
 // api.ts 가 서버 연결 실패를 감지하면 자동으로 이 목업으로 전환한다.
 import type { OfferCard, CashwalkStatus } from "./api";
+import { hasClientLLM, llmAnswer, resetLLM } from "./llm";
 
 const STEP_PER_MS = 1000, DAILY_CAP = 20000, REWARD_PER_MS = 20;
 
@@ -122,29 +123,46 @@ function followUpsFor(cat: string): string[] {
   return ["좀 더 자세히 알려줄래요?", "제 상황에 맞게 정리해줄래요?"];
 }
 
+// 키가 없을 때 쓰는 결정형(정해진) 답변.
+function cannedAnswer(text: string, cat: string) {
+  return {
+    summary: cat === "rental"
+      ? "정수기 렌탈은 월 요금·약정·의무기간·자동결제를 꼭 함께 비교하는 게 좋아요."
+      : cat === "life"
+        ? `말씀 잘 들었어요. '${text.slice(0, 20)}'에 대해 도움드릴게요.`
+        : `'${text.slice(0, 24)}' 관련해서 핵심부터 정리해 드릴게요.`,
+    sections: [
+      { title: "먼저 확인할 점", body: cat === "rental" ? "월 렌탈료뿐 아니라 총 소유비용(월×약정)과 중도해지 위약금을 함께 보세요." : "핵심 조건(총비용·기간·취소 규정)을 먼저 비교하는 것이 좋아요." },
+      { title: "이렇게 하면 좋아요", body: "표시 가격만 보지 말고 배송비·수수료·자동결제까지 포함한 총비용으로 판단하세요." },
+    ],
+    uncertainty: { message: "가격·조건은 시점에 따라 달라질 수 있어요. 진행 전에 다시 확인하세요." },
+  };
+}
+
 // api.ts 의 Api 와 동일한 시그니처
 export const MockApi = {
-  async createConversation() { return { conversation_id: rid("cnv") }; },
+  async createConversation() { resetLLM(); return { conversation_id: rid("cnv") }; },
   async ask(_c: string, text: string) {
     const safety = safetyOf(text);
     const cat = category(text);
     // 위험 상황이면 광고 미노출(백엔드와 동일).
     const { need, nudge } = safety ? { need: "none" as const, nudge: null } : needOf(text, cat);
     const matched = safety ? { benefits: [], missions: [] } : curate(cat, need);
+
+    // 키가 있으면 실제 Claude로 '진짜 대화'(멀티턴). 위기·사기(critical)는 안전 문구를 우선.
+    let answer = cannedAnswer(text, cat);
+    if (hasClientLLM && !(safety && safety.level === "critical")) {
+      try {
+        const r = await llmAnswer(text, safety?.body ?? null);
+        answer = { summary: r.summary, sections: r.sections, uncertainty: { message: "가격·조건은 시점에 따라 달라질 수 있어요." } };
+      } catch {
+        answer = cannedAnswer(text, cat); // 네트워크·키 오류 시 폴백
+      }
+    }
+
     return {
       answerSnapshotId: rid("ans"),
-      answer: {
-        summary: cat === "rental"
-          ? "정수기 렌탈은 월 요금·약정·의무기간·자동결제를 꼭 함께 비교하는 게 좋아요."
-          : cat === "life"
-            ? `말씀 잘 들었어요. '${text.slice(0, 20)}'에 대해 도움드릴게요.`
-            : `'${text.slice(0, 24)}' 관련해서 핵심부터 정리해 드릴게요.`,
-        sections: [
-          { title: "먼저 확인할 점", body: cat === "rental" ? "월 렌탈료뿐 아니라 총 소유비용(월×약정)과 중도해지 위약금을 함께 보세요." : "핵심 조건(총비용·기간·취소 규정)을 먼저 비교하는 것이 좋아요." },
-          { title: "이렇게 하면 좋아요", body: "표시 가격만 보지 말고 배송비·수수료·자동결제까지 포함한 총비용으로 판단하세요." },
-        ],
-        uncertainty: { message: "가격·조건은 시점에 따라 달라질 수 있어요. 진행 전에 다시 확인하세요." },
-      },
+      answer,
       commercial: matched.benefits[0] ?? null,
       matched,
       needLevel: need,
