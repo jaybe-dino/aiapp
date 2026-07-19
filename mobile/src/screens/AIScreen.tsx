@@ -1,11 +1,11 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, Animated, Easing,
-  KeyboardAvoidingView, Platform, LayoutAnimation, UIManager,
+  KeyboardAvoidingView, Platform, LayoutAnimation, UIManager, Linking,
 } from "react-native";
-import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import { useNavigation } from "@react-navigation/native";
 import { T, won } from "../theme";
-import { Api, OfferCard as Offer, NeedLevel, RewardNudge } from "../api";
+import { Api, OfferCard as Offer, NeedLevel, RewardNudge, SafetyNotice } from "../api";
 import OfferCard from "../components/OfferCard";
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -19,14 +19,15 @@ type Msg =
   | {
       role: "ai"; summary: string; sections: { title: string; body: string }[]; uncertainty: string;
       needLevel: NeedLevel; benefits: Offer[]; missions: Offer[]; rewardNudge: RewardNudge; answerSnapshotId: string;
+      safety?: SafetyNotice | null; // 사기·건강·금융 등 안전 안내
       retry?: string; // 실패 시 재시도할 질문
     };
 
 const QUICK = [
-  { emoji: "💰", label: "생활비를 줄이고 싶어요" },
-  { emoji: "🧳", label: "여행·쇼핑 가격을 비교해요" },
+  { emoji: "💬", label: "생활비를 아끼고 싶어요" },
+  { emoji: "🛡️", label: "이거 사기 아닌가요? 원금 보장에 고수익이래요" },
+  { emoji: "🧳", label: "여행 싸게 가는 법 알려줘요" },
   { emoji: "🚰", label: "정수기 렌탈을 알아봐요" },
-  { emoji: "👟", label: "걸으면서 포인트 모으기" },
 ];
 
 export default function AIScreen() {
@@ -34,12 +35,9 @@ export default function AIScreen() {
   const [text, setText] = useState("");
   const [messages, setMessages] = useState<Msg[]>([]);
   const [busy, setBusy] = useState(false);
-  const [available, setAvailable] = useState(0);
   const convId = useRef<string | null>(null);
   const scrollRef = useRef<ScrollView>(null);
   const inputRef = useRef<TextInput>(null);
-
-  useFocusEffect(useCallback(() => { Api.wallet().then((w) => setAvailable(w.available)).catch(() => {}); }, []));
 
   const scrollToEnd = () => setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 70);
 
@@ -67,6 +65,7 @@ export default function AIScreen() {
           missions: r.matched?.missions ?? [],
           rewardNudge: r.rewardNudge ?? null,
           answerSnapshotId: r.answerSnapshotId,
+          safety: r.safetyNotice ?? null,
         },
       ]);
     } catch {
@@ -86,22 +85,17 @@ export default function AIScreen() {
       <ScrollView ref={scrollRef} style={{ flex: 1 }} contentContainerStyle={{ padding: 18, paddingBottom: 10 }} keyboardShouldPersistTaps="handled" onContentSizeChange={scrollToEnd} showsVerticalScrollIndicator={false}>
         {empty ? (
           <View>
-            <View style={s.headRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={s.hello}>안녕하세요 👋</Text>
-                <Text style={s.h}>무엇이{"\n"}궁금하세요?</Text>
-              </View>
-              <View style={s.walletPill}><Text style={s.walletLabel}>사용 가능</Text><Text style={s.walletValue}>{won(available)}</Text></View>
-            </View>
-            <Text style={s.lead}>궁금한 걸 편하게 물어보세요. 대화 속에서 필요할 때만{"\n"}딱 맞는 혜택과 포인트를 연결해 드려요.</Text>
+            <Text style={s.hello}>안녕하세요 👋</Text>
+            <Text style={s.h}>무엇이 궁금하세요?</Text>
+            <Text style={s.lead}>생활·건강·돈 문제까지, 무엇이든 편하게{"\n"}물어보세요. 쉬운 말로 정리해 드릴게요.</Text>
 
             <TouchableOpacity style={s.talk} activeOpacity={0.9} onPress={() => inputRef.current?.focus()}>
-              <View style={s.talkMic}><Text style={{ fontSize: 22 }}>🎤</Text></View>
-              <View style={{ flex: 1 }}><Text style={s.talkTitle}>눌러서 물어보기</Text><Text style={s.talkSub}>천천히 말하거나 글로 입력해도 돼요</Text></View>
+              <View style={s.talkMic}><Text style={{ fontSize: 22 }}>✏️</Text></View>
+              <View style={{ flex: 1 }}><Text style={s.talkTitle}>눌러서 물어보기</Text><Text style={s.talkSub}>궁금한 걸 그대로 적어 보세요</Text></View>
               <Text style={s.talkArrow}>›</Text>
             </TouchableOpacity>
 
-            <Text style={s.quickHead}>이런 걸 도와드려요</Text>
+            <Text style={s.quickHead}>이렇게 물어보세요</Text>
             <View style={s.chipWrap}>
               {QUICK.map((qq) => (
                 <TouchableOpacity key={qq.label} style={s.chip} onPress={() => ask(qq.label)} activeOpacity={0.85}>
@@ -151,6 +145,9 @@ function MessageView({ m, goTab, onRetry }: { m: Msg; goTab: (n: string) => void
         )}
       </View>
 
+      {/* 안전 안내 — 사기·위기·건강·금융. 답변 바로 아래 눈에 띄게. */}
+      {m.safety && <SafetyCard notice={m.safety} />}
+
       {/* ready: 전체 카드 즉시 노출 */}
       {m.needLevel === "ready" && m.benefits.map((o) => <OfferCard key={o.offerSnapshotId} offer={o} answerSnapshotId={m.answerSnapshotId} />)}
       {/* exploring: 부드러운 제안(탭하면 펼침) */}
@@ -185,6 +182,26 @@ function SoftSuggestion({ benefit, answerSnapshotId }: { benefit: Offer; answerS
         <Text style={s.softToggle}>{open ? "접기" : "보기"}</Text>
       </TouchableOpacity>
       {open && <OfferCard offer={benefit} answerSnapshotId={answerSnapshotId} />}
+    </View>
+  );
+}
+
+// 안전 안내 카드. critical(사기·위기)은 강한 색, warn/info는 차분한 색. 상담 번호는 탭하면 전화.
+function SafetyCard({ notice }: { notice: SafetyNotice }) {
+  const critical = notice.level === "critical";
+  return (
+    <View style={[s.safety, critical ? s.safetyCritical : s.safetyWarn]}>
+      <Text style={[s.safetyTitle, critical && { color: "#a01818" }]}>{critical ? "🛑 " : "ℹ️ "}{notice.title}</Text>
+      <Text style={s.safetyBody}>{notice.body}</Text>
+      {!!notice.resources?.length && (
+        <View style={s.safetyRes}>
+          {notice.resources.map((r) => (
+            <TouchableOpacity key={r.value} style={s.resBtn} onPress={() => Linking.openURL(`tel:${r.value.replace(/[^0-9]/g, "")}`)} activeOpacity={0.85}>
+              <Text style={s.resLabel}>{r.label}</Text><Text style={s.resValue}>📞 {r.value}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
     </View>
   );
 }
@@ -257,6 +274,15 @@ const s = StyleSheet.create({
   uncertainText: { color: "#7a5b1e", fontSize: 13.5, lineHeight: 20 },
   retryBtn: { marginTop: 12, alignSelf: "flex-start", backgroundColor: T.brandSoft, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 10 },
   retryText: { color: T.brand, fontWeight: "800", fontSize: 15 },
+  safety: { borderRadius: 18, borderWidth: 1, padding: 16, marginBottom: 12 },
+  safetyCritical: { backgroundColor: "#fdecea", borderColor: "#f3c4bd" },
+  safetyWarn: { backgroundColor: "#fbf6ea", borderColor: "#eedec0" },
+  safetyTitle: { fontSize: 16.5, fontWeight: "900", color: "#7a5b1e", marginBottom: 6, lineHeight: 23 },
+  safetyBody: { fontSize: 15, color: T.ink, lineHeight: 22 },
+  safetyRes: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 12 },
+  resBtn: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "#fff", borderRadius: 12, borderWidth: 1, borderColor: "#e7d9c0", paddingHorizontal: 13, paddingVertical: 10 },
+  resLabel: { color: T.muted, fontWeight: "700", fontSize: 13.5 },
+  resValue: { color: "#a01818", fontWeight: "900", fontSize: 15 },
 
   soft: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: T.brandSoft, borderRadius: 18, borderWidth: 1, borderColor: "#cfe4da", paddingVertical: 14, paddingHorizontal: 15, marginBottom: 12 },
   softEmoji: { fontSize: 20 },

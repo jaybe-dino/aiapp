@@ -74,6 +74,12 @@ export interface OfferCard {
 
 export type NeedLevel = "none" | "exploring" | "ready";
 export type RewardNudge = "walk" | "mission" | null;
+export interface SafetyNotice {
+  level: "info" | "warn" | "critical";
+  title: string;
+  body: string;
+  resources?: { label: string; value: string }[];
+}
 export interface AskResult {
   answerSnapshotId: string;
   answer: {
@@ -85,6 +91,7 @@ export interface AskResult {
   matched?: { benefits: OfferCard[]; missions: OfferCard[] };
   needLevel?: NeedLevel;
   rewardNudge?: RewardNudge;
+  safetyNotice?: SafetyNotice | null;
 }
 
 const RealApi = {

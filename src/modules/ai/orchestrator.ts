@@ -2,8 +2,9 @@
 // 핵심 불변조건: answer.finalized_at 이전에는 오퍼 후보 조회가 절대 일어나지 않는다.
 // 이 파일에서 답변을 먼저 '확정'한 뒤에만 commercial 모듈을 호출한다.
 import { db } from "../../db/index.js";
+import { config } from "../../config.js";
 import { id, now, sha256 } from "../../lib/id.js";
-import { classifyInput } from "./safety.js";
+import { classifyInput, type SafetyNotice } from "./safety.js";
 import { generateAnswer, selectRecommendations } from "./provider.js";
 import { chatCandidateBriefs, cardsFromPicks, type IntentContext, type OfferCard } from "../commercial/commercial.js";
 import { logEvent } from "../analytics/events.js";
@@ -18,14 +19,16 @@ export interface TurnResult {
   matched: { benefits: OfferCard[]; missions: OfferCard[] }; // 주요 요인 매칭: 관련 혜택·미션
   needLevel: "none" | "exploring" | "ready"; // 추천 노출 게이팅(none이면 카드 미노출)
   rewardNudge: "walk" | "mission" | null; // 대화 맥락 기반 걷기/미션 유도(선택)
+  safetyNotice: SafetyNotice | null; // 사기·건강·금융 등 위험 감지 시 사용자 안전 안내
 }
 
 export async function handleTurn(p: { conversationId: string; userId: string; question: string }): Promise<TurnResult> {
   // 1) 입력 안전 판정
   const policy = classifyInput(p.question);
 
-  // 2) 답변 생성 (공급자에게 광고 정보 미전달). 3) 출력은 provider가 구조화 스키마로 반환.
-  const answer = await generateAnswer(p.question);
+  // 2) 답변 생성 (공급자에게 광고 정보 미전달). 위험 감지 시 안전 지침을 함께 전달.
+  //    3) 출력은 provider가 구조화 스키마로 반환.
+  const answer = await generateAnswer(p.question, config.aiModelTier, policy.guidanceForModel);
 
   // 4) 답변 확정 — 시각과 해시를 기록. 이 시점 이전에 오퍼 조회 없음.
   const answerSnapshotId = id("ans");
@@ -56,6 +59,10 @@ export async function handleTurn(p: { conversationId: string; userId: string; qu
     category: answer.suggested_category,
     risk_tier: policy.riskTier,
   });
+  // 안전: 위험 카테고리(사기·위기·건강·금융·법률) 감지 시 별도 이벤트로 관측(가드레일 튜닝).
+  if (policy.category !== "none") {
+    logEvent("safety_flag", p.userId, { category: policy.category, level: policy.safetyNotice?.level });
+  }
 
   // 5) 답변 확정 '후'에만 제한된 의도 문맥 생성.
   //    원문/민감정보는 넘기지 않고 카테고리·지역·허용여부만 전달(기획안 12.2).
@@ -98,5 +105,6 @@ export async function handleTurn(p: { conversationId: string; userId: string; qu
     matched,
     needLevel: answer.need_level,
     rewardNudge: answer.reward_nudge,
+    safetyNotice: policy.safetyNotice,
   };
 }

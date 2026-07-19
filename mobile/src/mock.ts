@@ -101,13 +101,29 @@ function addReward(title: string, source: string, amount: number, available: boo
   if (available) state.wallet.available += amount; else state.wallet.pending += amount;
 }
 
+// 데모용 안전 가드레일(백엔드 safety.ts의 축약판) — 오프라인에서도 사기·위기 경고 재현.
+function safetyOf(text: string): import("./api").SafetyNotice | null {
+  const s = text.toLowerCase();
+  if (/원금\s*보장|고수익\s*보장|수수료.*먼저|인증번호.*알려|계좌.*알려|검찰.*계좌|손자.*급하게.*돈|리딩방|정부\s*지원금.*수수료/.test(s))
+    return { level: "critical", title: "혹시 사기일 수 있어요. 잠시 멈추세요.", body: "‘원금 보장·고수익’, ‘수수료 먼저’, ‘인증번호·계좌 요구’, 기관·가족 사칭은 대표적 사기예요. 절대 송금·개인정보 제공하지 말고 가족·지인에게 먼저 확인하세요.", resources: [{ label: "경찰(신고)", value: "112" }, { label: "보이스피싱·금융사기", value: "1332" }] };
+  if (/자살|죽고\s*싶|살기\s*싫|자해/.test(s))
+    return { level: "critical", title: "많이 힘드셨을 것 같아요. 혼자 견디지 마세요.", body: "지금 마음이 힘들다면 전문 상담사와 바로 이야기할 수 있어요.", resources: [{ label: "자살예방상담", value: "1393" }, { label: "정신건강상담", value: "1577-0199" }] };
+  if (/증상|무슨\s*병|약\s*먹|처방|통증|당뇨|고혈압/.test(s))
+    return { level: "warn", title: "건강 문제는 전문의 상담이 가장 안전해요", body: "일반 정보만 알려드릴 수 있어요. 진단·처방은 꼭 의사·약사와 상의하세요." };
+  if (/대출|투자|코인|주식|보험\s*가입|재테크/.test(s))
+    return { level: "warn", title: "돈이 오가는 결정은 천천히, 공식 창구에서", body: "투자·대출·보험은 원금 손실이나 불리한 조건 위험이 있어요. ‘보장·고수익’은 특히 조심하고, 진행 전 공식 창구·가족과 확인하세요.", resources: [{ label: "금융 사기 의심 시", value: "1332" }] };
+  return null;
+}
+
 // api.ts 의 Api 와 동일한 시그니처
 export const MockApi = {
   async createConversation() { return { conversation_id: rid("cnv") }; },
   async ask(_c: string, text: string) {
+    const safety = safetyOf(text);
     const cat = category(text);
-    const { need, nudge } = needOf(text, cat);
-    const matched = curate(cat, need);
+    // 위험 상황이면 광고 미노출(백엔드와 동일).
+    const { need, nudge } = safety ? { need: "none" as const, nudge: null } : needOf(text, cat);
+    const matched = safety ? { benefits: [], missions: [] } : curate(cat, need);
     return {
       answerSnapshotId: rid("ans"),
       answer: {
@@ -126,6 +142,7 @@ export const MockApi = {
       matched,
       needLevel: need,
       rewardNudge: nudge,
+      safetyNotice: safety,
     };
   },
   async offers(type: "shopping" | "mission" | "rental") { return { offers: OFFERS[type] ?? [] }; },

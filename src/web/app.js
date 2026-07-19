@@ -53,10 +53,10 @@ function render() {
 
 // ---------- AI 도움 ----------
 const QUICK = [
-  { e: "💰", t: "생활비를 줄이고 싶어요" },
-  { e: "🧳", t: "여행·쇼핑 가격을 비교해요" },
+  { e: "💬", t: "생활비를 아끼고 싶어요" },
+  { e: "🛡️", t: "이거 사기 아닌가요? 원금 보장에 고수익이래요" },
+  { e: "🧳", t: "여행 싸게 가는 법 알려줘요" },
   { e: "🚰", t: "정수기 렌탈을 알아봐요" },
-  { e: "📍", t: "우리 동네 서비스를 찾아요" },
 ];
 async function renderAI() {
   const w = await refreshWallet();
@@ -65,13 +65,10 @@ async function renderAI() {
   v.appendChild(el(`
     <div class="ai-chat">
       <div id="emptyState">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start">
-          <div><div class="hello">안녕하세요 👋</div><div class="h-big">무엇이<br>궁금하세요?</div></div>
-          <div class="wallet-box"><div class="l">사용 가능</div><div class="v">${won(w.available)}</div></div>
-        </div>
-        <p class="voice-hint" style="text-align:left;margin:2px 0 16px">궁금한 걸 편하게 물어보세요. 대화 속에서 필요할 때만<br>딱 맞는 혜택과 포인트를 연결해 드려요.</p>
-        <button class="talk-btn" id="voice"><span class="mic">🎤</span><span class="tx"><b>눌러서 물어보기</b><span class="sub">천천히 말하거나 글로 입력해도 돼요</span></span><span class="arw">›</span></button>
-        <div class="quick-head">이런 걸 물어볼 수 있어요</div>
+        <div class="hello">안녕하세요 👋</div><div class="h-big">무엇이 궁금하세요?</div>
+        <p class="voice-hint" style="text-align:left;margin:8px 0 16px">생활·건강·돈 문제까지, 무엇이든 편하게 물어보세요.<br>쉬운 말로 정리해 드릴게요.</p>
+        <button class="talk-btn" id="voice"><span class="mic">✏️</span><span class="tx"><b>눌러서 물어보기</b><span class="sub">궁금한 걸 그대로 적어 보세요</span></span><span class="arw">›</span></button>
+        <div class="quick-head">이렇게 물어보세요</div>
         <div id="quicks"></div>
       </div>
       <div id="thread"></div>
@@ -141,6 +138,7 @@ function answerBlock(r) {
       <div id="ad"></div>
     </div>`);
   const ad = block.querySelector("#ad");
+  if (r.safetyNotice) ad.appendChild(safetyCard(r.safetyNotice));
   const need = r.needLevel || (r.matched && r.matched.benefits && r.matched.benefits.length ? "ready" : "none");
   const benefits = (r.matched && r.matched.benefits) || (r.commercial ? [r.commercial] : []);
   const missions = (r.matched && r.matched.missions) || [];
@@ -158,6 +156,17 @@ function answerBlock(r) {
     ad.appendChild(el(`<div class="ai-note">지금은 안내에 집중했어요. 필요한 순간에만 혜택을 연결해 드려요.</div>`));
   }
   return block;
+}
+
+// 안전 안내 카드(사기·위기·건강·금융). 상담 번호는 tel: 링크.
+function safetyCard(n) {
+  const critical = n.level === "critical";
+  const res = (n.resources || []).map((r) => `<a class="res-btn" href="tel:${esc(r.value.replace(/[^0-9]/g, ""))}"><span class="rl">${esc(r.label)}</span><span class="rv">📞 ${esc(r.value)}</span></a>`).join("");
+  return el(`<div class="safety ${critical ? "critical" : "warn"}">
+    <div class="safety-title">${critical ? "🛑 " : "ℹ️ "}${esc(n.title)}</div>
+    <div class="safety-body">${esc(n.body)}</div>
+    ${res ? `<div class="safety-res">${res}</div>` : ""}
+  </div>`);
 }
 
 // exploring: 부드러운 제안 — 누르면 카드가 펼쳐진다(포인트 앞세움)
