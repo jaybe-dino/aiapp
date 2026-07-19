@@ -6,7 +6,7 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { T } from "./src/theme";
 import { onDemoMode } from "./src/api";
-import { hasClientLLM } from "./src/llm";
+import { hasClientLLM, keyLooksValid } from "./src/llm";
 import { bindOnboarding, initOnboarding, completeOnboarding } from "./src/onboarding";
 import { initFontScale } from "./src/fontscale";
 import Onboarding from "./src/screens/Onboarding";
@@ -26,11 +26,19 @@ function DemoBanner() {
   useEffect(() => onDemoMode(setDemo), []);
   if (!demo) return null;
   // 실제 AI(클라이언트 키)가 연결됐는지 표시 — 정해진 답('도돌이표')인지 진짜 대화인지 구분.
-  const realAI = hasClientLLM;
+  // 키가 있어도 형식이 이상하면(플레이스홀더 등) 초록 대신 경고색으로 즉시 알려준다.
+  const badKey = hasClientLLM && !keyLooksValid;
+  const realAI = hasClientLLM && keyLooksValid;
+  const bg = badKey ? "#c2410c" : realAI ? T.brand : T.accent;
+  const label = badKey
+    ? "데모 모드 · 키 형식 확인 필요 (sk-ant- 로 시작?)"
+    : realAI
+      ? "데모 모드 · 실제 AI 대화 연결됨 ✓"
+      : "데모 모드 · 예시 답변 (실제 AI 미연결)";
   return (
-    <SafeAreaView edges={["top"]} style={{ backgroundColor: realAI ? T.brand : T.accent }}>
+    <SafeAreaView edges={["top"]} style={{ backgroundColor: bg }}>
       <Text style={{ color: "#fff", textAlign: "center", paddingVertical: 6, fontSize: 12.5, fontWeight: "700" }}>
-        {realAI ? "데모 모드 · 실제 AI 대화 연결됨 ✓" : "데모 모드 · 예시 답변 (실제 AI 미연결)"}
+        {label}
       </Text>
     </SafeAreaView>
   );

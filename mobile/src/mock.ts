@@ -1,7 +1,7 @@
 // 오프라인 데모 목업 — 백엔드 없이 앱 전체 흐름을 체험하기 위한 인메모리 구현.
 // api.ts 가 서버 연결 실패를 감지하면 자동으로 이 목업으로 전환한다.
 import type { OfferCard, CashwalkStatus } from "./api";
-import { hasClientLLM, llmAnswer, resetLLM } from "./llm";
+import { hasClientLLM, keyLooksValid, llmAnswer, resetLLM, getLLMError } from "./llm";
 
 const STEP_PER_MS = 1000, DAILY_CAP = 20000, REWARD_PER_MS = 20;
 
@@ -157,7 +157,18 @@ export const MockApi = {
         const r = await llmAnswer(text, safety?.body ?? null);
         answer = { summary: r.summary, sections: r.sections, uncertainty: { message: "가격·조건은 시점에 따라 달라질 수 있어요." } };
       } catch {
-        answer = cannedAnswer(text, cat); // 네트워크·키 오류 시 폴백
+        // 실제 AI 연결이 안 됐는데 조용히 예시로 답하면 사용자가 원인을 알 수 없음 → 이유를 화면에 노출.
+        const why = !keyLooksValid
+          ? "API 키 형식이 올바르지 않아요. sk-ant- 로 시작하는 키를 EXPO_PUBLIC_ANTHROPIC_KEY 에 다시 넣어 주세요."
+          : (getLLMError() || "인터넷 연결을 확인해 주세요.");
+        answer = {
+          summary: "지금은 실제 AI 연결이 안 돼 예시로 답했어요.",
+          sections: [
+            { title: "무엇이 문제인가요?", body: why },
+            { title: "이렇게 해보세요", body: "인터넷을 확인하고, 키를 넣은 뒤에는 Expo를 완전히 종료했다가 다시 실행해 주세요(캐시 때문에 반영이 늦을 수 있어요)." },
+          ],
+          uncertainty: { message: "연결되면 자동으로 실제 대화로 바뀌어요." },
+        };
       }
     }
 
