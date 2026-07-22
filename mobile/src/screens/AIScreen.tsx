@@ -6,7 +6,7 @@ import {
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useCallback } from "react";
 import { T, won } from "../theme";
-import { Api, OfferCard as Offer, NeedLevel, RewardNudge, SafetyNotice, Proactive } from "../api";
+import { Api, OfferCard as Offer, NeedLevel, RewardNudge, SafetyNotice, Proactive, ChatStatus } from "../api";
 import { onFontScale } from "../fontscale";
 import OfferCard from "../components/OfferCard";
 
@@ -18,6 +18,7 @@ const ease = () => LayoutAnimation.configureNext(LayoutAnimation.create(220, "ea
 type Msg =
   | { role: "user"; text: string }
   | { role: "loading" }
+  | { role: "gate"; question: string; chat: ChatStatus } // 무료 대화 소진 → 광고 보고 이어가기
   | {
       role: "ai"; summary: string; sections: { title: string; body: string }[]; uncertainty: string;
       needLevel: NeedLevel; benefits: Offer[]; missions: Offer[]; rewardNudge: RewardNudge; answerSnapshotId: string;
@@ -40,13 +41,18 @@ export default function AIScreen() {
   const [busy, setBusy] = useState(false);
   const [fs, setFs] = useState(1);
   const [pro, setPro] = useState<Proactive | null>(null);
+  const [chat, setChat] = useState<ChatStatus | null>(null);
+  const [adBusy, setAdBusy] = useState(false);
   const convId = useRef<string | null>(null);
   const scrollRef = useRef<ScrollView>(null);
   const inputRef = useRef<TextInput>(null);
 
   useEffect(() => onFontScale(setFs), []);
   // 앱이 먼저 건네는 '오늘의 이야기' — 대화 없을 때 홈에서 안부를 전한다.
-  useFocusEffect(useCallback(() => { Api.proactive().then(setPro).catch(() => {}); }, []));
+  useFocusEffect(useCallback(() => {
+    Api.proactive().then(setPro).catch(() => {});
+    Api.chatStatus().then(setChat).catch(() => {});
+  }, []));
 
   // 새 대화 시작 — 대화가 있을 때만 헤더에 '새 대화' 버튼 노출(이어가기/새로 시작 구분).
   const newChat = useCallback(() => {
@@ -81,13 +87,23 @@ export default function AIScreen() {
       if (!convId.current) convId.current = (await Api.createConversation()).conversation_id;
       const r = await Api.ask(convId.current, question);
       ease();
+      // 무료 대화 소진 → 답변 대신 '광고 보고 이어가기' 카드. 방금 질문은 광고 후 자동 전송.
+      if (r.gated || !r.answer) {
+        setMessages((m) => [
+          ...m.filter((x) => x.role !== "loading"),
+          { role: "gate", question, chat: r.chat ?? { used: 0, allowance: 0, remaining: 0, locked: true, adReward: 20, perUnlock: 5 } },
+        ]);
+        return;
+      }
+      if (r.chat) setChat(r.chat);
+      const ans = r.answer; // 로컬 const로 바인딩해야 클로저 안에서 null-narrowing 유지
       setMessages((m) => [
         ...m.filter((x) => x.role !== "loading"),
         {
           role: "ai",
-          summary: r.answer.summary,
-          sections: r.answer.sections,
-          uncertainty: r.answer.uncertainty.message,
+          summary: ans.summary,
+          sections: ans.sections,
+          uncertainty: ans.uncertainty.message,
           needLevel: r.needLevel ?? (r.matched?.benefits.length ? "ready" : "none"),
           benefits: r.matched?.benefits ?? (r.commercial ? [r.commercial] : []),
           missions: r.matched?.missions ?? [],
@@ -107,8 +123,27 @@ export default function AIScreen() {
     }
   }
 
+  // 광고 시청(데모: 짧은 대기) → 대화 개방 + 포인트 → 방금 질문 자동 전송.
+  async function watchAdAndContinue(question: string) {
+    if (adBusy) return;
+    setAdBusy(true);
+    try {
+      await new Promise((r) => setTimeout(r, 1400)); // 광고 재생 대체(실 SDK 연동 지점)
+      const res = await Api.watchChatAd();
+      setChat(res.status);
+      ease();
+      setMessages((m) => m.filter((x) => x.role !== "gate"));
+      await ask(question);
+    } catch {
+      /* noop */
+    } finally {
+      setAdBusy(false);
+    }
+  }
+
   const goTab = (name: string) => nav.navigate(name);
   const empty = messages.length === 0;
+  const lowChat = chat && !chat.locked && chat.remaining <= 2 && chat.remaining > 0;
 
   return (
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: T.bg }} behavior={Platform.OS === "ios" ? "padding" : undefined} keyboardVerticalOffset={90}>
@@ -146,9 +181,15 @@ export default function AIScreen() {
             </View>
           </View>
         ) : (
-          messages.map((m, i) => <MessageView key={i} m={m} goTab={goTab} onRetry={ask} fs={fs} />)
+          messages.map((m, i) => <MessageView key={i} m={m} goTab={goTab} onRetry={ask} fs={fs} onWatchAd={watchAdAndContinue} adBusy={adBusy} />)
         )}
       </ScrollView>
+
+      {lowChat && (
+        <View style={s.remainBar}>
+          <Text style={[s.remainText, { fontSize: 13 * fs }]}>무료 대화 {chat!.remaining}회 남았어요 · 이후엔 광고 보고 이어가기</Text>
+        </View>
+      )}
 
       <View style={s.inputBar}>
         <View style={s.inputWrap}>
@@ -162,7 +203,7 @@ export default function AIScreen() {
   );
 }
 
-function MessageView({ m, goTab, onRetry, fs }: { m: Msg; goTab: (n: string) => void; onRetry: (q: string) => void; fs: number }) {
+function MessageView({ m, goTab, onRetry, fs, onWatchAd, adBusy }: { m: Msg; goTab: (n: string) => void; onRetry: (q: string) => void; fs: number; onWatchAd: (q: string) => void; adBusy: boolean }) {
   if (m.role === "user") return <View style={s.userBubble}><Text style={[s.userText, { fontSize: 16.5 * fs, lineHeight: 23 * fs }]}>{m.text}</Text></View>;
   if (m.role === "loading") return (
     <View style={s.aiCard}>
@@ -170,6 +211,21 @@ function MessageView({ m, goTab, onRetry, fs }: { m: Msg; goTab: (n: string) => 
         <TypingDots />
         <Text style={[s.thinking, { fontSize: 13.5 * fs }]}>생각하고 있어요…</Text>
       </View>
+    </View>
+  );
+  // 광고 보고 대화 이어가기 — 수익화 미션을 대화에 자연스럽게 녹인 카드.
+  if (m.role === "gate") return (
+    <View style={s.gate}>
+      <Text style={[s.gateTitle, { fontSize: 17 * fs, lineHeight: 24 * fs }]}>무료 대화를 다 쓰셨어요</Text>
+      <Text style={[s.gateBody, { fontSize: 14.5 * fs, lineHeight: 21 * fs }]}>
+        짧은 광고를 보면 대화 {m.chat.perUnlock}회를 더 할 수 있고, 포인트 {m.chat.adReward}P도 함께 드려요.
+      </Text>
+      <TouchableOpacity style={[s.gateBtn, adBusy && { opacity: 0.6 }]} onPress={() => onWatchAd(m.question)} disabled={adBusy} activeOpacity={0.85}>
+        <Text style={[s.gateBtnText, { fontSize: 16 * fs }]}>{adBusy ? "광고 보는 중…" : `🎬 광고 보고 이어가기 (+${m.chat.adReward}P)`}</Text>
+      </TouchableOpacity>
+      <TouchableOpacity onPress={() => goTab("걷기")} activeOpacity={0.8}>
+        <Text style={[s.gateAlt, { fontSize: 13.5 * fs }]}>또는 걸어서 포인트 모으기 ›</Text>
+      </TouchableOpacity>
     </View>
   );
 
@@ -384,6 +440,14 @@ const s = StyleSheet.create({
   followText: { color: T.brandDark, fontWeight: "700", fontSize: 15, flex: 1 },
   followArrow: { color: T.muted, fontWeight: "300", fontSize: 20 },
 
+  gate: { backgroundColor: T.accentSoft, borderRadius: 20, borderWidth: 1, borderColor: T.accentLine, padding: 18, marginBottom: 12, alignItems: "center" },
+  gateTitle: { color: "#8a5626", fontWeight: "900", fontSize: 17, marginBottom: 6, textAlign: "center" },
+  gateBody: { color: "#8a5626", fontSize: 14.5, lineHeight: 21, textAlign: "center", marginBottom: 14 },
+  gateBtn: { backgroundColor: T.accent, borderRadius: 16, paddingVertical: 15, paddingHorizontal: 22, alignSelf: "stretch", alignItems: "center" },
+  gateBtnText: { color: "#fff", fontWeight: "900", fontSize: 16 },
+  gateAlt: { color: "#a9743a", fontWeight: "700", fontSize: 13.5, marginTop: 12 },
+  remainBar: { alignItems: "center", paddingVertical: 6, backgroundColor: T.accentSoft, borderTopWidth: 1, borderTopColor: T.accentLine },
+  remainText: { color: "#8a5626", fontWeight: "700", fontSize: 13 },
   inputBar: { flexDirection: "row", alignItems: "flex-end", gap: 9, paddingHorizontal: 14, paddingTop: 9, paddingBottom: Platform.OS === "ios" ? 26 : 12, backgroundColor: T.card, borderTopWidth: 1, borderTopColor: T.line },
   inputWrap: { flex: 1, backgroundColor: T.bg, borderRadius: 22, borderWidth: 1, borderColor: T.line, paddingHorizontal: 17, justifyContent: "center", minHeight: 50, maxHeight: 130 },
   input: { fontSize: 16.5, color: T.ink, paddingVertical: Platform.OS === "ios" ? 13 : 8 },

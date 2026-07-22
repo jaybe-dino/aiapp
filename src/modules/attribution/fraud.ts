@@ -12,8 +12,9 @@ export function scoreConversion(p: {
   const reasons: string[] = [];
   let score = 0;
 
-  // 1) 클릭 없는 전환(귀속 불명확)
-  if (!p.clickId && p.source !== "cashwalk_ad") {
+  // 1) 클릭 없는 전환(귀속 불명확). 자체 광고망 즉시보상(걷기·대화연장)은 클릭이 없는 게 정상.
+  const selfAdNet = p.source === "cashwalk_ad" || p.source === "chat_ad";
+  if (!p.clickId && !selfAdNet) {
     score += 0.4;
     reasons.push("클릭 없는 전환");
   }

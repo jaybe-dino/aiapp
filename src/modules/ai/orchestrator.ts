@@ -8,6 +8,7 @@ import { classifyInput, redactPII, screenOutput, type SafetyNotice } from "./saf
 import { generateAnswer, selectRecommendations, type ChatMessage } from "./provider.js";
 import { chatCandidateBriefs, cardsFromPicks, type IntentContext, type OfferCard } from "../commercial/commercial.js";
 import { logEvent } from "../analytics/events.js";
+import { chatStatus, type ChatStatus } from "./chatgate.js";
 
 export interface TurnResult {
   answerSnapshotId: string;
@@ -21,6 +22,8 @@ export interface TurnResult {
   rewardNudge: "walk" | "mission" | null; // 대화 맥락 기반 걷기/미션 유도(선택)
   safetyNotice: SafetyNotice | null; // 사기·건강·금융 등 위험 감지 시 사용자 안전 안내
   followUps: string[]; // 이어서 물어볼 만한 후속 질문(대화 유도)
+  gated?: boolean; // 무료 대화 소진 → '광고 보고 이어가기' 필요(answer=null)
+  chat?: ChatStatus; // 대화 잔여/개방 상태
 }
 
 /** 대화 이력(멀티턴 기억): 이 대화의 이전 턴들을 user/assistant 메시지로 복원(최근 N턴). */
@@ -58,6 +61,14 @@ export async function handleTurn(p: { conversationId: string; userId: string; qu
   // 1) 입력 안전 판정 + 개인정보 마스킹(원문 대신 마스킹본을 LLM 전송·저장에 사용).
   const policy = classifyInput(p.question);
   const safeQuestion = policy.pii ? redactPII(p.question) : p.question;
+
+  // 0-1) 무료 대화 게이트: 소진 시 '광고 보고 이어가기'. 단, 위기·사기(critical) 대화는
+  //      절대 막지 않는다(안전이 수익화보다 우선). 게이트 상태는 답변 없이 반환.
+  const gate = chatStatus(p.userId);
+  if (gate.locked && policy.safetyNotice?.level !== "critical") {
+    logEvent("chat_gated", p.userId, { used: gate.used, allowance: gate.allowance });
+    return gatedResult(p, gate);
+  }
 
   // 2) 답변 생성 (공급자에게 광고 정보 미전달). 위험 감지 시 안전 지침·대화 이력을 함께 전달.
   //    3) 출력은 provider가 구조화 스키마로 반환.
@@ -149,6 +160,27 @@ export async function handleTurn(p: { conversationId: string; userId: string; qu
     safetyNotice: policy.safetyNotice,
     // 위기·사기 등 강한 안전 상황에서는 후속 질문을 노출하지 않는다.
     followUps: policy.safetyNotice?.level === "critical" ? [] : answer.follow_ups,
+    gated: false,
+    chat: chatStatus(p.userId), // 이번 답변 반영 후 잔여 상태
+  };
+}
+
+/** 무료 대화 소진 → 답변 없이 '광고 보고 이어가기' 게이트를 반환. */
+function gatedResult(p: { conversationId: string; userId: string; question: string }, gate: ChatStatus): TurnResult {
+  return {
+    answerSnapshotId: id("ans"),
+    finalizedAt: now(),
+    answer: null, // 답변하지 않음(광고 시청 후 재요청)
+    citations: [],
+    policy: { riskTier: "low", commercialAllowed: false, reasonCodes: ["chat_gate"] },
+    commercial: null,
+    matched: { benefits: [], missions: [] },
+    needLevel: "none",
+    rewardNudge: null,
+    safetyNotice: null,
+    followUps: [],
+    gated: true,
+    chat: gate,
   };
 }
 

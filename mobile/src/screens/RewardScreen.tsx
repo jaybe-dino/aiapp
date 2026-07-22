@@ -1,16 +1,19 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert, RefreshControl } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { T, won } from "../theme";
 import { Api } from "../api";
+import { onFontScale } from "../fontscale";
 
 interface Reward { reward_transaction_id: string; title: string; source: string; state: string; state_label: string; amount: number; }
-const SRC: Record<string, string> = { shopping_cps: "쇼핑 적립", offerwall_cpa: "미션 보상", cashwalk_ad: "걷기 보상", rental_cpa: "렌탈 보상" };
+const SRC: Record<string, string> = { shopping_cps: "쇼핑 적립", offerwall_cpa: "미션 보상", cashwalk_ad: "걷기 보상", rental_cpa: "렌탈 보상", chat_ad: "대화 연장 보상" };
 
 export default function RewardScreen() {
   const [wallet, setWallet] = useState({ available: 0, pending: 0, used: 0 });
   const [rewards, setRewards] = useState<Reward[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [fs, setFs] = useState(1);
+  useEffect(() => onFontScale(setFs), []); // 글자 크기 설정을 이 화면에도 반영(시니어 접근성)
 
   const load = useCallback(async () => {
     try { const [w, r] = await Promise.all([Api.wallet(), Api.rewards()]); setWallet(w); setRewards(r.rewards); } catch { /* noop */ }
@@ -54,30 +57,35 @@ export default function RewardScreen() {
   return (
     <ScrollView style={{ flex: 1, backgroundColor: T.bg }} contentContainerStyle={{ padding: 18, paddingBottom: 40 }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} />}>
-      <Text style={s.h}>내 보상</Text>
+      <Text style={[s.h, { fontSize: 26 * fs }]}>내 보상</Text>
 
       <View style={s.card}>
-        <Text style={s.availLabel}>사용 가능</Text>
-        <Text style={s.avail}>{won(wallet.available)}</Text>
-        <View style={s.row}><Pill {...pill("pending")} /><Text style={s.v}>{won(wallet.pending)}</Text></View>
-        <View style={s.row}><Pill {...pill("paid")} /><Text style={s.v}>{won(wallet.used)}</Text></View>
+        <Text style={[s.availLabel, { fontSize: 14 * fs }]}>사용 가능</Text>
+        <Text style={[s.avail, { fontSize: 38 * fs }]}>{won(wallet.available)}</Text>
+        <View style={s.row}><Pill {...pill("pending")} fs={fs} /><Text style={[s.v, { fontSize: 15 * fs }]}>{won(wallet.pending)}</Text></View>
+        <View style={s.row}><Pill {...pill("paid")} fs={fs} /><Text style={[s.v, { fontSize: 15 * fs }]}>{won(wallet.used)}</Text></View>
         <TouchableOpacity style={[s.exchange, wallet.available < 3000 && { opacity: 0.5 }]} onPress={exchange} disabled={wallet.available < 3000} activeOpacity={0.85}>
-          <Text style={s.exchangeText}>3,000원 쿠폰으로 교환하기</Text>
+          <Text style={[s.exchangeText, { fontSize: 17 * fs }]}>3,000원 쿠폰으로 교환하기</Text>
         </TouchableOpacity>
-        <View style={s.disclose}><Text style={s.discloseText}>확인 중 금액은 아직 사용할 수 없어요. 광고주 확인이 끝나면 ‘사용 가능’으로 바뀝니다.</Text></View>
+        <View style={s.disclose}><Text style={[s.discloseText, { fontSize: 13 * fs, lineHeight: 19 * fs }]}>확인 중 금액은 아직 사용할 수 없어요. 광고주 확인이 끝나면 ‘사용 가능’으로 바뀝니다.</Text></View>
       </View>
 
-      <Text style={s.sectionH}>거래 내역</Text>
+      <Text style={[s.sectionH, { fontSize: 19 * fs }]}>거래 내역</Text>
       {rewards.length === 0 ? (
         <View style={s.card}><Text style={{ color: T.muted }}>아직 거래가 없어요. AI 도움·혜택·미션·걷기로 보상을 모아보세요.</Text></View>
       ) : (
         rewards.map((r) => {
           const p = pill(r.state);
+          // G1: '확인 중'이면 언제 쓸 수 있는지 예상 시점을 알려줘 불안을 줄인다.
+          const eta = r.state !== "available" && r.state !== "paid" && r.state !== "reversed"
+            ? (r.source === "cashwalk_ad" ? "걷기 보상은 보통 바로 사용 가능해요." : "보통 1~2일 후 ‘사용 가능’으로 바뀌어요.")
+            : null;
           return (
             <View key={r.reward_transaction_id} style={s.card}>
-              <View style={s.row}><Text style={s.title}>{r.title}</Text><Pill {...p} /></View>
-              <View style={s.row}><Text style={s.k}>{SRC[r.source] ?? r.source}</Text><Text style={s.v}>{won(r.amount)}</Text></View>
-              <TouchableOpacity style={s.ghost} onPress={() => showTimeline(r.reward_transaction_id)}><Text style={s.ghostText}>진행 상태 보기</Text></TouchableOpacity>
+              <View style={s.row}><Text style={[s.title, { fontSize: 16 * fs }]}>{r.title}</Text><Pill {...p} fs={fs} /></View>
+              <View style={s.row}><Text style={[s.k, { fontSize: 15 * fs }]}>{SRC[r.source] ?? r.source}</Text><Text style={[s.v, { fontSize: 15 * fs }]}>{won(r.amount)}</Text></View>
+              {eta && <Text style={[s.eta, { fontSize: 13 * fs, lineHeight: 19 * fs }]}>⏳ {eta}</Text>}
+              <TouchableOpacity style={s.ghost} onPress={() => showTimeline(r.reward_transaction_id)}><Text style={[s.ghostText, { fontSize: 15 * fs }]}>진행 상태 보기</Text></TouchableOpacity>
             </View>
           );
         })
@@ -86,8 +94,8 @@ export default function RewardScreen() {
   );
 }
 
-function Pill({ bg, c, t }: { bg: string; c: string; t: string }) {
-  return <View style={{ backgroundColor: bg, borderRadius: 999, paddingHorizontal: 11, paddingVertical: 5 }}><Text style={{ color: c, fontWeight: "800", fontSize: 13 }}>{t}</Text></View>;
+function Pill({ bg, c, t, fs = 1 }: { bg: string; c: string; t: string; fs?: number }) {
+  return <View style={{ backgroundColor: bg, borderRadius: 999, paddingHorizontal: 11, paddingVertical: 5 }}><Text style={{ color: c, fontWeight: "800", fontSize: 13 * fs }}>{t}</Text></View>;
 }
 
 const s = StyleSheet.create({
@@ -106,4 +114,5 @@ const s = StyleSheet.create({
   sectionH: { fontSize: 19, fontWeight: "800", color: T.ink, marginBottom: 10 },
   ghost: { backgroundColor: T.brandSoft, borderRadius: 12, paddingVertical: 13, alignItems: "center", marginTop: 8 },
   ghostText: { color: T.brand, fontWeight: "800" },
+  eta: { color: T.accent, fontSize: 13, marginTop: 2, marginBottom: 2 },
 });

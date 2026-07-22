@@ -49,9 +49,10 @@ export function ingestConversion(
     .get(n.supplierId, n.externalConversionId) as { conversion_id: string; status: string } | undefined;
   if (dup) return { conversionId: dup.conversion_id, status: dup.status, duplicate: true };
 
-  // [보안] 걷기 광고 보상(cashwalk_ad)은 서버 내부 경로에서만 생성 가능.
-  // 외부 포스트백이 source=cashwalk_ad 로 임의 사용자/금액을 즉시지급하는 사칭을 차단.
-  const cashwalkSpoof = n.source === "cashwalk_ad" && origin !== "internal";
+  // [보안] 자체 광고망 즉시지급 보상(걷기·대화연장)은 서버 내부 경로에서만 생성 가능.
+  // 외부 포스트백이 이 source 로 임의 사용자/금액을 즉시지급하는 사칭을 차단.
+  const internalAdSource = n.source === "cashwalk_ad" || n.source === "chat_ad";
+  const cashwalkSpoof = internalAdSource && origin !== "internal";
 
   // 귀속: click_id로 사용자/오퍼 스냅샷 확인
   let click: ClickRow | undefined;
@@ -71,13 +72,13 @@ export function ingestConversion(
   let commissionAmount = 0;
   let title = "제휴 전환 보상";
 
-  if (n.source === "cashwalk_ad") {
-    // 걷기 광고 보상은 payload에 사용자/금액이 담겨온다(자체 광고망)
+  if (internalAdSource) {
+    // 자체 광고망 보상은 payload에 사용자/금액이 담겨온다(걷기·대화연장)
     const p = n.rawPayload as { user_id?: string; reward_amount?: number };
     userId = p.user_id ?? userId;
     rewardAmount = p.reward_amount ?? 0;
     commissionAmount = Math.max(0, n.grossAmount - rewardAmount);
-    title = "걷기 광고 보상";
+    title = n.source === "chat_ad" ? "대화 연장 광고 보상" : "걷기 광고 보상";
   } else if (click) {
     const snap = db
       .prepare("SELECT reward_amount, commission_amount FROM offer_versions WHERE offer_snapshot_id = ?")
@@ -131,9 +132,9 @@ export function ingestConversion(
     });
     rewardTransactionId = rw.reward_transaction_id;
 
-    // 걷기 자체광고 보상은 즉시 확정(광고 CPM은 이미 수취) → 사용가능까지 진행.
-    // 내부 경로(claimMilestone)에서만. 외부 포스트백은 위에서 이미 rejected 처리됨.
-    if (n.source === "cashwalk_ad" && origin === "internal") {
+    // 자체광고 보상(걷기·대화연장)은 즉시 확정(광고 CPM은 이미 수취) → 사용가능까지 진행.
+    // 내부 경로에서만. 외부 포스트백은 위에서 이미 rejected 처리됨.
+    if (internalAdSource && origin === "internal") {
       approve(rewardTransactionId);
       makeAvailable(rewardTransactionId);
     }

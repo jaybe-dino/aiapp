@@ -11,7 +11,16 @@ const state = {
   steps: 0,
   claimed: new Set<number>(),
   region: null as string | null,
+  // 일상 대화 + 수익화 미션: 무료 대화 N회 후에는 '광고 보고 이어가기'로 대화를 연장한다.
+  chat: { used: 0, free: 5, adUnlocks: 0, adReward: 20, perUnlock: 5 },
 };
+
+function chatAllowance() { return state.chat.free + state.chat.adUnlocks * state.chat.perUnlock; }
+function chatStatusObj() {
+  const allowance = chatAllowance();
+  const remaining = Math.max(0, allowance - state.chat.used);
+  return { used: state.chat.used, allowance, remaining, locked: remaining <= 0, adReward: state.chat.adReward, perUnlock: state.chat.perUnlock };
+}
 
 function rid(p: string) { return p + "_" + Math.random().toString(36).slice(2, 10); }
 
@@ -143,9 +152,27 @@ function cannedAnswer(text: string, cat: string) {
 // api.ts 의 Api 와 동일한 시그니처
 export const MockApi = {
   async createConversation() { resetLLM(); return { conversation_id: rid("cnv") }; },
+  async chatStatus() { return chatStatusObj(); },
+  // 광고 시청 완료 → 대화 N회 추가 개방 + 포인트 적립(수익화 미션).
+  async watchChatAd() {
+    state.chat.adUnlocks += 1;
+    addReward("대화 연장 광고 보상", "chat_ad", state.chat.adReward, true);
+    return { status: chatStatusObj(), rewarded: state.chat.adReward };
+  },
   async ask(_c: string, text: string) {
     const safety = safetyOf(text);
     const cat = category(text);
+    // 안전(위기·사기) 대화는 절대 게이팅하지 않는다 — 도움이 우선.
+    const critical = !!(safety && safety.level === "critical");
+    // 무료 대화 소진 시: 답하지 않고 '광고 보고 이어가기' 게이트를 돌려준다.
+    if (!critical && chatStatusObj().locked) {
+      return {
+        answerSnapshotId: rid("ans"), answer: null, gated: true, chat: chatStatusObj(),
+        commercial: null, matched: { benefits: [], missions: [] }, needLevel: "none" as const,
+        rewardNudge: null, safetyNotice: null, followUps: [], fallback: false,
+      };
+    }
+    if (!critical) state.chat.used += 1;
     // 위험 상황이면 광고 미노출(백엔드와 동일).
     const { need, nudge } = safety ? { need: "none" as const, nudge: null } : needOf(text, cat);
     const matched = safety ? { benefits: [], missions: [] } : curate(cat, need);
@@ -186,6 +213,8 @@ export const MockApi = {
       followUps: safety && safety.level === "critical" ? [] : followUpsFor(cat),
       // 안전(critical) 답변은 정해진 안내가 맞으므로 예시 태그를 붙이지 않음.
       fallback: safety && safety.level === "critical" ? false : fallback,
+      gated: false,
+      chat: chatStatusObj(),
     };
   },
   async offers(type: "shopping" | "mission" | "rental") { return { offers: OFFERS[type] ?? [] }; },

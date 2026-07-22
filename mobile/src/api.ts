@@ -87,13 +87,21 @@ export interface Proactive {
   action: { label: string; tab: string } | null;
   weather: { label: string; tempC: number } | null;
 }
+export interface ChatStatus {
+  used: number;
+  allowance: number;
+  remaining: number;
+  locked: boolean;
+  adReward: number;
+  perUnlock: number;
+}
 export interface AskResult {
   answerSnapshotId: string;
   answer: {
     summary: string;
     sections: { title: string; body: string }[];
     uncertainty: { message: string };
-  };
+  } | null;
   commercial: OfferCard | null;
   matched?: { benefits: OfferCard[]; missions: OfferCard[] };
   needLevel?: NeedLevel;
@@ -102,6 +110,9 @@ export interface AskResult {
   followUps?: string[];
   // 이 답변이 실제 AI가 아니라 '예시(폴백)'로 만들어졌는지 — 화면에 정직하게 표시하기 위함.
   fallback?: boolean;
+  // 무료 대화 소진 → '광고 보고 이어가기' 게이트.
+  gated?: boolean;
+  chat?: ChatStatus;
 }
 
 const RealApi = {
@@ -111,6 +122,12 @@ const RealApi = {
   },
   async ask(conversationId: string, text: string) {
     return req<AskResult>(`/v1/conversations/${conversationId}/messages`, { method: "POST", body: JSON.stringify({ text }) });
+  },
+  async chatStatus() {
+    return req<ChatStatus>("/v1/chat/status");
+  },
+  async watchChatAd() {
+    return req<{ status: ChatStatus; rewarded: number }>("/v1/chat/ad", { method: "POST", body: "{}" });
   },
   async offers(type: "shopping" | "mission" | "rental") {
     return req<{ offers: OfferCard[] }>(`/v1/offers?type=${type}`);

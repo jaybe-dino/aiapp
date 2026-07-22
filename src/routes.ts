@@ -11,6 +11,7 @@ import { verifyToken } from "./lib/auth.js";
 import { rateLimit } from "./lib/ratelimit.js";
 import { str, int } from "./lib/validate.js";
 import { handleTurn } from "./modules/ai/orchestrator.js";
+import { chatStatus, watchChatAd } from "./modules/ai/chatgate.js";
 import {
   listShoppingOffers,
   listMissionOffers,
@@ -126,6 +127,17 @@ export function registerRoutes(app: FastifyInstance) {
     const text = str(req.body?.text, "질문 내용", { min: 1, max: 2000 });
     const result = await handleTurn({ conversationId, userId, question: text });
     return result;
+  });
+
+  // --- 대화 게이트(무료 대화 + 광고 보고 이어가기) ---------------------
+  app.get("/v1/chat/status", async (req) => chatStatus(uid(req)));
+  app.post("/v1/chat/ad", async (req: FastifyRequest<{ Body: { ad_impression_id?: string } }>) => {
+    const userId = uid(req);
+    // 광고 시청 증적(실 SDK: 리워드 광고 SSV 토큰). 샘플 광고망은 존재만 확인.
+    const adImpressionId = req.body?.ad_impression_id || `chatad_${Date.now()}`;
+    const res = watchChatAd(userId, adImpressionId);
+    logEvent("chat_ad_watched", userId, { rewarded: res.rewarded });
+    return res;
   });
 
   // --- 혜택(쇼핑)/미션(오퍼월) 목록 & 상세 ----------------------------
