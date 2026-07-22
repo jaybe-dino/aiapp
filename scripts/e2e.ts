@@ -3,6 +3,7 @@
 // 실행: npm run e2e   (API 키가 있으면 실제 LLM, 없으면 결정형 목업으로 동작)
 import { seed } from "../src/db/seed.js";
 import { handleTurn } from "../src/modules/ai/orchestrator.js";
+import { watchChatAd } from "../src/modules/ai/chatgate.js";
 import { createClick, listRentalOffers } from "../src/modules/commercial/commercial.js";
 import { ingestConversion } from "../src/modules/attribution/attribution.js";
 import { approve, makeAvailable, listRewards } from "../src/modules/reward/reward.js";
@@ -37,9 +38,16 @@ async function main() {
   let readyOfferSnapshotId: string | null = null;
   let readyAnswerSnapshotId: string | null = null;
   for (const q of questions) {
-    const r = await handleTurn({ conversationId: conv, userId, question: q });
-    const a = r.answer as { summary: string };
+    let r = await handleTurn({ conversationId: conv, userId, question: q });
     line(`\n👤 ${q}`);
+    // 무료 대화 소진 → 광고 보고 이어가기(수익화 미션) 후 재요청. (안전 대화는 게이팅 안 됨)
+    let guard = 0;
+    while ((r.gated || !r.answer) && guard++ < 3) {
+      line(`   🎬 무료 대화 소진 → 광고 시청(+${r.chat?.adReward ?? 20}P)으로 이어가기`);
+      watchChatAd(userId, "e2e_ad_" + Date.now() + "_" + guard);
+      r = await handleTurn({ conversationId: conv, userId, question: q });
+    }
+    const a = r.answer as { summary: string };
     line(`🤖 ${a.summary}`);
     line(`   니즈: ${r.needLevel}${r.rewardNudge ? " · 넛지:" + r.rewardNudge : ""}`);
     if (r.safetyNotice) line(`   🛡️ 안전안내(${r.safetyNotice.level}): ${r.safetyNotice.title}`);
