@@ -123,6 +123,13 @@ async function ask(text) {
     if (!conversationId) conversationId = (await api("/v1/conversations", { method: "POST", body: "{}" })).conversation_id;
     const r = await api(`/v1/conversations/${conversationId}/messages`, { method: "POST", body: JSON.stringify({ text: q }) });
     loading.remove();
+    // 무료 대화 소진 → 답변 대신 '광고 보고 이어가기' 카드. 광고 후 방금 질문 자동 전송.
+    if (r.gated || !r.answer) {
+      const gate = gateCard(r.chat || {}, q);
+      thread.appendChild(gate); chatLog.push(gate);
+      scrollChatToEnd();
+      return;
+    }
     const block = answerBlock(r);
     thread.appendChild(block); chatLog.push(block);
     scrollChatToEnd();
@@ -133,6 +140,33 @@ async function ask(text) {
     thread.appendChild(errNode); chatLog.push(errNode);
     scrollChatToEnd();
   }
+}
+
+// 대화 연장 광고 게이트 — 수익화 미션을 대화에 녹인 카드.
+function gateCard(chat, question) {
+  const reward = chat.adReward ?? 20, per = chat.perUnlock ?? 5;
+  const node = el(`
+    <div class="msg-row"><div class="card gate">
+      <div class="gate-title">무료 대화를 다 쓰셨어요</div>
+      <div class="gate-body">짧은 광고를 보면 대화 ${per}회를 더 할 수 있고, 포인트 ${reward}P도 함께 드려요.</div>
+      <button class="gate-btn">🎬 광고 보고 이어가기 (+${reward}P)</button>
+      <button class="gate-alt">또는 걸어서 포인트 모으기 ›</button>
+    </div></div>`);
+  const btn = node.querySelector(".gate-btn");
+  btn.addEventListener("click", async () => {
+    if (btn.disabled) return;
+    btn.disabled = true; btn.textContent = "광고 보는 중…";
+    try {
+      await new Promise((r) => setTimeout(r, 1400)); // 광고 재생 대체(실 SDK 연동 지점)
+      await api("/v1/chat/ad", { method: "POST", body: "{}" });
+      refreshWallet();
+      const idx = chatLog.indexOf(node); if (idx >= 0) chatLog.splice(idx, 1);
+      node.remove();
+      ask(question); // 방금 질문 자동 재전송
+    } catch (e) { btn.disabled = false; btn.textContent = `🎬 광고 보고 이어가기 (+${reward}P)`; }
+  });
+  node.querySelector(".gate-alt").addEventListener("click", () => document.querySelector(`#tabbar button[data-tab="walk"]`)?.click());
+  return node;
 }
 
 function answerBlock(r) {
@@ -430,7 +464,7 @@ async function exchange(available) {
   } catch (e) { toast(e.title || "교환 실패"); }
 }
 
-function sourceLabel(s) { return ({ shopping_cps: "쇼핑 적립", offerwall_cpa: "미션 보상", cashwalk_ad: "걷기 보상", rental_cpa: "렌탈 보상" })[s] || s; }
+function sourceLabel(s) { return ({ shopping_cps: "쇼핑 적립", offerwall_cpa: "미션 보상", cashwalk_ad: "걷기 보상", rental_cpa: "렌탈 보상", chat_ad: "대화 연장 보상" })[s] || s; }
 
 // ---------- 온보딩(첫 실행) ----------
 const ONB_STEPS = [

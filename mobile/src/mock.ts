@@ -55,9 +55,9 @@ function findOffer(snapshotId: string): OfferCard | undefined {
 
 function category(q: string): string {
   const s = q.toLowerCase();
-  if (/렌탈|렌트|구독|정수기|비데|공기청정기\s*렌/.test(s)) return "rental";
-  if (/여행|부산|제주|숙박|호텔|기차|ktx|항공/.test(s)) return "travel";
-  if (/쇼핑|구매|가격|최저가|사는|싸게|필터|청정기|배송|상품/.test(s)) return "shopping";
+  if (/렌탈|렌트|구독|정수기|비데|안마의자|매트리스|공기청정기\s*렌/.test(s)) return "rental";
+  if (/여행|부산|제주|숙박|호텔|펜션|리조트|기차|ktx|항공|비행기|패키지/.test(s)) return "travel";
+  if (/쇼핑|구매|가격|최저가|사는|사고\s*싶|싸게|저렴|필터|청정기|배송|상품|선물|노트북|휴대폰|건강식품|영양제|홍삼/.test(s)) return "shopping";
   return "life";
 }
 
@@ -67,7 +67,8 @@ type Nudge = "walk" | "mission" | null;
 function needOf(q: string, cat: string): { need: NeedLevel; nudge: Nudge } {
   const s = q.toLowerCase();
   const commercial = cat === "rental" || cat === "travel" || cat === "shopping";
-  const ready = /신청|예약|가입|계약|주문|설치\s*(신청|해)|하고\s*싶|하려|할래|해줘|바꾸려|바꿀|알아보고\s*있/.test(s);
+  // 명시적 상품 요청(추천/찾아/비교/어디서 사 등)도 '준비' 단계로 본다.
+  const ready = /신청|예약|가입|계약|주문|설치\s*(신청|해)|하고\s*싶|사고\s*싶|하려|할래|해줘|바꾸려|바꿀|알아보고\s*있|추천|찾아|골라|비교|어디서\s*사|살까|좋을까/.test(s);
   const need: NeedLevel = commercial ? (ready ? "ready" : "exploring") : "none";
   let nudge: Nudge = null;
   if (need !== "ready") {
