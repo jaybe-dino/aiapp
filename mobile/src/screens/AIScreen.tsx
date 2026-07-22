@@ -24,6 +24,7 @@ type Msg =
       safety?: SafetyNotice | null; // 사기·건강·금융 등 안전 안내
       followUps?: string[]; // 이어서 물어볼 후속 질문
       retry?: string; // 실패 시 재시도할 질문
+      fallback?: boolean; // 실제 AI가 아닌 '예시' 답변인지 — 정직하게 표시
     };
 
 const QUICK = [
@@ -46,6 +47,24 @@ export default function AIScreen() {
   useEffect(() => onFontScale(setFs), []);
   // 앱이 먼저 건네는 '오늘의 이야기' — 대화 없을 때 홈에서 안부를 전한다.
   useFocusEffect(useCallback(() => { Api.proactive().then(setPro).catch(() => {}); }, []));
+
+  // 새 대화 시작 — 대화가 있을 때만 헤더에 '새 대화' 버튼 노출(이어가기/새로 시작 구분).
+  const newChat = useCallback(() => {
+    ease();
+    setMessages([]);
+    convId.current = null; // 다음 질문에서 새 대화 생성 → 이전 맥락과 분리
+    Api.proactive().then(setPro).catch(() => {});
+  }, []);
+  useEffect(() => {
+    nav.setOptions({
+      headerRight: () =>
+        messages.length > 0 ? (
+          <TouchableOpacity onPress={newChat} activeOpacity={0.8} style={{ paddingHorizontal: 6, paddingVertical: 4 }}>
+            <Text style={{ color: T.brand, fontWeight: "800", fontSize: 15 }}>＋ 새 대화</Text>
+          </TouchableOpacity>
+        ) : null,
+    });
+  }, [messages.length, newChat, nav]);
 
   const scrollToEnd = () => setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 70);
 
@@ -76,6 +95,7 @@ export default function AIScreen() {
           answerSnapshotId: r.answerSnapshotId,
           safety: r.safetyNotice ?? null,
           followUps: r.followUps ?? [],
+          fallback: r.fallback ?? false,
         },
       ]);
     } catch {
@@ -113,14 +133,14 @@ export default function AIScreen() {
               </View>
             ) : (
               <View style={{ marginBottom: 22, marginTop: 8 }}>
-                <Text style={s.hello}>안녕하세요 👋</Text>
-                <Text style={s.h}>무엇이든{"\n"}편하게 물어보세요</Text>
+                <Text style={[s.hello, { fontSize: 16 * fs }]}>안녕하세요 👋</Text>
+                <Text style={[s.h, { fontSize: 32 * fs, lineHeight: 40 * fs }]}>무엇이든{"\n"}편하게 물어보세요</Text>
               </View>
             )}
             <View style={s.chipWrap}>
               {QUICK.map((qq) => (
                 <TouchableOpacity key={qq.label} style={s.chip} onPress={() => ask(qq.label)} activeOpacity={0.85}>
-                  <Text style={s.chipEmoji}>{qq.emoji}</Text><Text style={s.chipText}>{qq.label}</Text>
+                  <Text style={s.chipEmoji}>{qq.emoji}</Text><Text style={[s.chipText, { fontSize: 16 * fs }]}>{qq.label}</Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -144,13 +164,27 @@ export default function AIScreen() {
 
 function MessageView({ m, goTab, onRetry, fs }: { m: Msg; goTab: (n: string) => void; onRetry: (q: string) => void; fs: number }) {
   if (m.role === "user") return <View style={s.userBubble}><Text style={[s.userText, { fontSize: 16.5 * fs, lineHeight: 23 * fs }]}>{m.text}</Text></View>;
-  if (m.role === "loading") return <View style={s.aiCard}><TypingDots /></View>;
+  if (m.role === "loading") return (
+    <View style={s.aiCard}>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+        <TypingDots />
+        <Text style={[s.thinking, { fontSize: 13.5 * fs }]}>생각하고 있어요…</Text>
+      </View>
+    </View>
+  );
 
   const failed = !!m.retry;
   return (
     <View style={{ marginBottom: 6 }}>
       <View style={s.aiCard}>
-        <View style={s.aiBadgeRow}><View style={s.aiBadge}><Text style={s.aiBadgeText}>AI</Text></View><Text style={s.aiBadgeLabel}>도우미</Text></View>
+        <View style={s.aiBadgeRow}>
+          <View style={s.aiBadge}><Text style={s.aiBadgeText}>AI</Text></View>
+          <Text style={s.aiBadgeLabel}>도우미</Text>
+          {/* 실제 AI가 아니라 예시 답변이면 정직하게 표시 — '도돌이표' 오해 방지 */}
+          {m.fallback && !failed && (
+            <View style={s.exTag}><Text style={s.exTagText}>예시 답변</Text></View>
+          )}
+        </View>
         <Text style={[s.summary, { fontSize: 18 * fs, lineHeight: 26 * fs }]}>{m.summary}</Text>
         {m.sections.map((sec, j) => (
           <View key={j} style={{ marginTop: 10 }}>
@@ -189,7 +223,7 @@ function MessageView({ m, goTab, onRetry, fs }: { m: Msg; goTab: (n: string) => 
           <Text style={s.followHead}>이어서 물어보기</Text>
           {m.followUps.slice(0, 2).map((q, k) => (
             <TouchableOpacity key={k} style={s.followChip} activeOpacity={0.85} onPress={() => onRetry(q)}>
-              <Text style={s.followText}>{q}</Text><Text style={s.followArrow}>›</Text>
+              <Text style={[s.followText, { fontSize: 15 * fs }]}>{q}</Text><Text style={s.followArrow}>›</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -309,6 +343,9 @@ const s = StyleSheet.create({
   aiBadge: { backgroundColor: T.brand, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
   aiBadgeText: { color: "#fff", fontWeight: "900", fontSize: 11.5 },
   aiBadgeLabel: { color: T.muted, fontWeight: "800", fontSize: 13 },
+  thinking: { color: T.muted, fontWeight: "700", fontSize: 13.5 },
+  exTag: { backgroundColor: T.inset, borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2, marginLeft: 2 },
+  exTagText: { color: T.muted, fontWeight: "800", fontSize: 11 },
   summary: { fontSize: 18, fontWeight: "800", color: T.ink, lineHeight: 26 },
   secTitle: { fontWeight: "800", color: T.ink, marginBottom: 3, fontSize: 15.5 },
   secBody: { color: T.ink, fontSize: 15, lineHeight: 22 },

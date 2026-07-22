@@ -100,6 +100,8 @@ export interface AskResult {
   rewardNudge?: RewardNudge;
   safetyNotice?: SafetyNotice | null;
   followUps?: string[];
+  // 이 답변이 실제 AI가 아니라 '예시(폴백)'로 만들어졌는지 — 화면에 정직하게 표시하기 위함.
+  fallback?: boolean;
 }
 
 const RealApi = {

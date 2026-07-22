@@ -151,11 +151,14 @@ export const MockApi = {
     const matched = safety ? { benefits: [], missions: [] } : curate(cat, need);
 
     // 키가 있으면 실제 Claude로 '진짜 대화'(멀티턴). 위기·사기(critical)는 안전 문구를 우선.
+    // fallback: 이 답변이 실제 AI가 아니라 예시로 만들어졌는가(정직한 상태 표시용).
+    let fallback = true;
     let answer = cannedAnswer(text, cat);
     if (hasClientLLM && !(safety && safety.level === "critical")) {
       try {
         const r = await llmAnswer(text, safety?.body ?? null);
         answer = { summary: r.summary, sections: r.sections, uncertainty: { message: "가격·조건은 시점에 따라 달라질 수 있어요." } };
+        fallback = false; // 실제 AI 응답 성공
       } catch {
         // 실제 AI 연결이 안 됐는데 조용히 예시로 답하면 사용자가 원인을 알 수 없음 → 이유를 화면에 노출.
         const why = !keyLooksValid
@@ -181,6 +184,8 @@ export const MockApi = {
       rewardNudge: nudge,
       safetyNotice: safety,
       followUps: safety && safety.level === "critical" ? [] : followUpsFor(cat),
+      // 안전(critical) 답변은 정해진 안내가 맞으므로 예시 태그를 붙이지 않음.
+      fallback: safety && safety.level === "critical" ? false : fallback,
     };
   },
   async offers(type: "shopping" | "mission" | "rental") { return { offers: OFFERS[type] ?? [] }; },
