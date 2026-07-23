@@ -1,0 +1,39 @@
+# Render.com 배포 청사진(Blueprint) — 공개 URL로 외부 테스트.
+# 사용법: Render 대시보드 → New + → Blueprint → 이 저장소 선택 → Apply.
+#   그 뒤 ANTHROPIC_API_KEY 만 대시보드에서 입력하면 '진짜 Claude 대화'가 됩니다.
+# 보안 시크릿은 자동 생성(generateValue). 데모 리워드 시뮬레이션을 위해 dev 엔드포인트는 켜둡니다.
+services:
+  - type: web
+    name: hyeaek-ai
+    runtime: node
+    plan: free
+    region: singapore            # 한국 근접(선택: oregon/frankfurt 등 가능)
+    buildCommand: npm install --include=dev   # tsx는 devDependency → 반드시 dev 포함
+    startCommand: npm start
+    healthCheckPath: /
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # 실제 Claude 대화를 원하면 대시보드에서 sk-ant- 키 입력. 비우면 예시 답변으로 동작.
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: AI_MODEL_TIER
+        value: fast              # 가장 저렴한 Claude Haiku 4.5
+      - key: ENABLE_DEV_ENDPOINTS
+        value: "true"            # 데모용 전환 시뮬레이터 노출(테스트 편의)
+      - key: FREE_CHATS_PER_DAY
+        value: "5"               # 광고 게이트를 빨리 보려면 2로 낮추세요
+      - key: CHAT_AD_UNLOCK_COUNT
+        value: "5"
+      - key: CHAT_AD_REWARD
+        value: "20"
+      # 보안 시크릿(운영 필수) — Render가 강한 랜덤값 자동 생성
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: PII_ENC_KEY
+        generateValue: true
+      - key: SUPPLIER_HMAC_SECRET
+        generateValue: true
+      - key: CLICK_SIGNING_SECRET
+        generateValue: true

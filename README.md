@@ -32,6 +32,9 @@
 
 터미널만으로 전체 루프를 보고 싶으면: `./test.sh e2e`
 
+**외부(폰·PC)에서 공개 URL로 테스트**하려면 → [`docs/DEPLOY.md`](docs/DEPLOY.md)
+(Render 무료 배포 원클릭 청사진 `render.yaml` 포함, 또는 로컬+터널).
+
 ## 빠른 실행 (키 없이도 동작)
 
 ```bash
