@@ -75,6 +75,20 @@ export async function handleTurn(p: { conversationId: string; userId: string; qu
   const history = conversationHistory(p.conversationId);
   const answer = await generateAnswer(safeQuestion, config.aiModelTier, policy.guidanceForModel, history);
 
+  // [비용 실측] 이번 턴 토큰·추정비용을 KPI 이벤트로. answer_json 오염 방지 위해 분리·삭제.
+  const usage = (answer as { usage?: any }).usage;
+  delete (answer as { usage?: any }).usage;
+  if (usage) {
+    // Haiku 4.5 단가: 입력 $1 · 출력 $5 · 캐시쓰기 1.25배 · 캐시읽기 0.1배 (per 1M) + 검색 $0.01/회
+    const costUsd =
+      (usage.input * 1 + usage.cacheWrite * 1.25 + usage.cacheRead * 0.1 + usage.output * 5) / 1_000_000 +
+      (usage.searched ? 0.01 : 0);
+    logEvent("llm_usage", p.userId, {
+      input: usage.input, output: usage.output, cache_read: usage.cacheRead, cache_write: usage.cacheWrite,
+      searched: usage.searched, cost_usd: Number(costUsd.toFixed(6)), cost_krw: Math.round(costUsd * 1400),
+    });
+  }
+
   // 3-1) 출력 스크리닝(심층 방어): 위험 내용이 새어 나오면 안전 문구로 대체.
   if (!screenOutput(answer.summary, answer.sections).safe) {
     answer.summary = "죄송해요, 그 내용은 안전을 위해 자세히 안내하기 어려워요. 다른 방식으로 도와드릴게요.";

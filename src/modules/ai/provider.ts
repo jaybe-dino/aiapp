@@ -29,6 +29,15 @@ export interface StructuredAnswer {
   need_summary: string;
   // 이어서 물어볼 만한 짧은 후속 질문(사용자 입장). 대화를 자연스럽게 이어가도록 유도.
   follow_ups: string[];
+  // 이 턴의 토큰 사용량(비용 실측·로깅용). LLM 호출이 없었으면 undefined.
+  usage?: { input: number; output: number; cacheRead: number; cacheWrite: number; searched: boolean };
+}
+
+// 실시간·지역 정보가 필요한 질문인지(웹 검색 도구를 붙일지) 판정.
+// 잡담·정보 질문엔 도구를 빼서 입력 토큰(≈2천)·비용을 아낀다.
+const REALTIME_RE = /병원|약국|의원|치과|한의원|맛집|식당|카페|가격|얼마|최저가|시세|환율|주가|주식|영업시간|몇\s*시|여는|문\s*닫|근처|주변|가까운|위치|주소|전화번호|연락처|날씨|미세먼지|기온|뉴스|속보|택배|배송\s*조회|맛있는\s|어디서\s*(사|파|살)/;
+export function needsRealtimeSearch(question: string): boolean {
+  return REALTIME_RE.test(question);
 }
 
 // 2단계(추천 큐레이션)용 후보 요약. 커머셜 모듈이 답변 확정 '후'에 채워 넘긴다(수수료 정보 없음).
@@ -175,21 +184,34 @@ export async function generateAnswer(
     const client = new Anthropic({ apiKey: config.anthropicApiKey });
     const model = TIER_MODEL[tier] ?? TIER_MODEL.fast!;
     // 안전 엔진이 위험 카테고리를 감지하면 그 지침을 시스템 프롬프트에 덧붙여 안전하게 답하도록 유도.
-    const system = safetyGuidance ? `${SYSTEM_POLICY}\n\n[안전 지침]\n${safetyGuidance}` : SYSTEM_POLICY;
+    const systemText = safetyGuidance ? `${SYSTEM_POLICY}\n\n[안전 지침]\n${safetyGuidance}` : SYSTEM_POLICY;
     // 멀티턴 기억: 이전 대화(user/assistant)를 함께 전달해 맥락을 이어간다.
     const messages = [...(history ?? []), { role: "user" as const, content: question }];
+    // [비용 절감 1] 웹 검색은 실시간·지역 질문일 때만 붙인다(불필요한 ~2천 토큰 절약).
+    const searched = needsRealtimeSearch(question);
+    const tools = searched ? ([{ type: "web_search_20250305", name: "web_search", max_uses: 3 }] as any) : undefined;
     const resp = await client.messages.create({
       model,
       max_tokens: 2048, // 한국어 전체 답변+스키마가 잘려 JSON 파싱 실패하지 않도록 여유 확보
-      // 실시간·지역 정보(병원·가격 등)를 실제로 찾아주는 서버사이드 웹 검색 도구.
-      // (설치된 SDK 타입에 서버툴 유니온이 없어 캐스팅. 와이어 포맷은 API가 수용 — 검증 완료)
-      tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 3 }] as any,
-      system,
+      ...(tools ? { tools } : {}),
+      // [비용 절감 2] 시스템 프롬프트(+도구) 프리픽스를 캐싱 → 반복 호출 입력비 최대 90%↓.
+      // (설치된 SDK 타입에 cache_control 없어 캐스팅. 와이어 포맷은 API가 수용)
+      system: [{ type: "text", text: systemText, cache_control: { type: "ephemeral" } }] as any,
       messages,
     });
     const text = resp.content.filter((b) => b.type === "text").map((b) => (b as { text: string }).text).join("");
     const json = extractJson(text);
-    return normalize(json, question);
+    const answer = normalize(json, question);
+    // [비용 실측] 토큰 사용량 기록(캐시 읽기/쓰기 분리).
+    const u = resp.usage as any;
+    answer.usage = {
+      input: u?.input_tokens ?? 0,
+      output: u?.output_tokens ?? 0,
+      cacheRead: u?.cache_read_input_tokens ?? 0,
+      cacheWrite: u?.cache_creation_input_tokens ?? 0,
+      searched,
+    };
+    return answer;
   } catch (err) {
     // 공급자 장애 시 안전 폴백(기획안 9.4). 답변 경로가 광고 때문에 실패하지 않듯, LLM 장애도 격리.
     return mockAnswer(question, true);

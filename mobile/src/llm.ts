@@ -24,6 +24,9 @@ let history: Msg[] = [];
 
 export function resetLLM() { history = []; }
 
+// 실시간·지역 질문일 때만 웹 검색을 붙여 불필요한 토큰(≈2천)·비용을 아낀다.
+const REALTIME_RE = /병원|약국|의원|치과|한의원|맛집|식당|카페|가격|얼마|최저가|시세|환율|주가|주식|영업시간|몇\s*시|여는|문\s*닫|근처|주변|가까운|위치|주소|전화번호|연락처|날씨|미세먼지|기온|뉴스|속보|택배|배송\s*조회|맛있는\s|어디서\s*(사|파|살)/;
+
 function extractJson(text: string): any {
   const cleaned = text.replace(/```json\s*/gi, "").replace(/```/g, "");
   const s = cleaned.indexOf("{"), e = cleaned.lastIndexOf("}");
@@ -49,9 +52,10 @@ export async function llmAnswer(
       body: JSON.stringify({
         model: "claude-haiku-4-5",
         max_tokens: 1500,
-        // 실시간·지역 정보(병원·가격 등)를 실제로 찾아주는 서버사이드 웹 검색 도구.
-        tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 3 }],
-        system: guidance ? `${SYSTEM}\n\n[안전 지침] ${guidance}` : SYSTEM,
+        // 실시간·지역 질문일 때만 웹 검색 도구를 붙인다(비용 절감).
+        ...(REALTIME_RE.test(question) ? { tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 3 }] } : {}),
+        // 시스템 프롬프트 캐싱 → 반복 호출 입력비 절감.
+        system: [{ type: "text", text: guidance ? `${SYSTEM}\n\n[안전 지침] ${guidance}` : SYSTEM, cache_control: { type: "ephemeral" } }],
         messages,
       }),
     });
