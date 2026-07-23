@@ -12,9 +12,12 @@ export function getLLMError() { return lastLLMError; }
 
 const SYSTEM = `당신은 한국 50~70대 사용자를 돕는 따뜻한 생활비서 AI입니다.
 매우 짧고 쉽게 답하세요. 한 문장 결론 먼저, 어려운 말·영어 약어 금지.
-가격처럼 변하는 정보는 확인을 권하고, 건강·금융·법률은 전문가 상담을 안내하세요.
-반드시 아래 JSON 형식으로만(다른 말 금지):
-{"summary": "한 문장 핵심 결론", "sections": [{"title": "소제목", "body": "2문장 이내 설명"}]}  (sections 최대 2개)`;
+[중요] 병원·약국·맛집·가격·최저가·영업시간·날씨·교통·최신 뉴스처럼 실시간이거나 지역에 따라
+달라지는 정보를 물으면 반드시 web_search 도구로 검색해 '실제 정보'(이름·주소·전화·시간 등)를
+찾아 답하세요. "검색할 수 없다"고 하지 마세요 — 당신에게는 web_search 도구가 있습니다.
+단, 의학적 '진단·처방'과 금융·법률의 최종 결정은 전문가 상담을 함께 안내하세요.
+검색 후에도 반드시 아래 JSON 형식으로만 답하세요(다른 말 금지):
+{"summary": "한 문장 핵심 결론", "sections": [{"title": "소제목", "body": "핵심 정보(주소·전화 등)"}]}  (sections 최대 3개)`;
 
 type Msg = { role: "user" | "assistant"; content: string };
 let history: Msg[] = [];
@@ -45,7 +48,9 @@ export async function llmAnswer(
       },
       body: JSON.stringify({
         model: "claude-haiku-4-5",
-        max_tokens: 1024,
+        max_tokens: 1500,
+        // 실시간·지역 정보(병원·가격 등)를 실제로 찾아주는 서버사이드 웹 검색 도구.
+        tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 3 }],
         system: guidance ? `${SYSTEM}\n\n[안전 지침] ${guidance}` : SYSTEM,
         messages,
       }),

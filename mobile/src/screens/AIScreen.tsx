@@ -4,6 +4,7 @@ import {
   KeyboardAvoidingView, Platform, LayoutAnimation, UIManager, Linking, Keyboard,
 } from "react-native";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import { useHeaderHeight } from "@react-navigation/elements";
 import { useCallback } from "react";
 import { T, won } from "../theme";
 import { Api, OfferCard as Offer, NeedLevel, RewardNudge, SafetyNotice, Proactive, ChatStatus } from "../api";
@@ -46,6 +47,7 @@ export default function AIScreen() {
   const convId = useRef<string | null>(null);
   const scrollRef = useRef<ScrollView>(null);
   const inputRef = useRef<TextInput>(null);
+  const headerHeight = useHeaderHeight(); // 정확한 헤더 높이 → 키패드 오프셋 정확히 계산(입력창 안 가림)
 
   useEffect(() => onFontScale(setFs), []);
   // 앱이 먼저 건네는 '오늘의 이야기' — 대화 없을 때 홈에서 안부를 전한다.
@@ -146,7 +148,7 @@ export default function AIScreen() {
   const lowChat = chat && !chat.locked && chat.remaining <= 2 && chat.remaining > 0;
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: T.bg }} behavior={Platform.OS === "ios" ? "padding" : undefined} keyboardVerticalOffset={90}>
+    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: T.bg }} behavior={Platform.OS === "ios" ? "padding" : "height"} keyboardVerticalOffset={Platform.OS === "ios" ? headerHeight : 0}>
       <ScrollView ref={scrollRef} style={{ flex: 1 }} contentContainerStyle={{ padding: 18, paddingBottom: 10 }} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" onContentSizeChange={scrollToEnd} showsVerticalScrollIndicator={false}>
         {empty ? (
           <View>
@@ -193,7 +195,7 @@ export default function AIScreen() {
 
       <View style={s.inputBar}>
         <View style={s.inputWrap}>
-          <TextInput ref={inputRef} style={s.input} placeholder="메시지를 입력하세요" placeholderTextColor={T.muted} value={text} onChangeText={setText} onSubmitEditing={() => ask()} returnKeyType="send" multiline />
+          <TextInput ref={inputRef} style={s.input} placeholder="메시지를 입력하세요" placeholderTextColor={T.muted} value={text} onChangeText={setText} onFocus={scrollToEnd} onSubmitEditing={() => ask()} returnKeyType="send" multiline />
         </View>
         <TouchableOpacity style={[s.send, (!text.trim() || busy) && { opacity: 0.35 }]} onPress={() => ask()} disabled={!text.trim() || busy} activeOpacity={0.85}>
           <Text style={s.sendIcon}>↑</Text>
