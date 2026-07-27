@@ -36,6 +36,9 @@ const QUICK = [
   { emoji: "🧳", label: "여행 싸게 가기" },
 ];
 
+// 미션별 아이콘(토스식 리스트 행: 왼쪽 원형 아이콘 + 제목 + 우측 값)
+const MISSION_EMOJI: Record<string, string> = { cm_health: "💪", cm_travel: "🍁", cm_saving: "🛒" };
+
 export default function AIScreen() {
   const nav = useNavigation<any>();
   const [text, setText] = useState("");
@@ -203,7 +206,9 @@ export default function AIScreen() {
             <View style={s.chipWrap}>
               {QUICK.map((qq) => (
                 <TouchableOpacity key={qq.label} style={s.chip} onPress={() => ask(qq.label)} activeOpacity={0.85}>
-                  <Text style={s.chipEmoji}>{qq.emoji}</Text><Text style={[s.chipText, { fontSize: 16 * fs }]}>{qq.label}</Text>
+                  <View style={s.chipIcon}><Text style={s.chipEmoji}>{qq.emoji}</Text></View>
+                  <Text style={[s.chipText, { fontSize: 16 * fs }]}>{qq.label}</Text>
+                  <Text style={s.chipArrow}>›</Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -219,12 +224,13 @@ export default function AIScreen() {
                   const done = m.state === "completed";
                   return (
                     <TouchableOpacity key={m.missionId} style={[s.mCard, done && { opacity: 0.55 }]} activeOpacity={0.85} disabled={done} onPress={() => startMission(m)}>
+                      <View style={s.mIcon}><Text style={s.mIconEmoji}>{MISSION_EMOJI[m.missionId] ?? "🎁"}</Text></View>
                       <View style={{ flex: 1 }}>
-                        <View style={s.mTitleRow}>
-                          <Text style={[s.mTitle, { fontSize: 15.5 * fs }]}>{m.title}</Text>
+                        <Text style={[s.mTitle, { fontSize: 15.5 * fs }]}>{m.title}</Text>
+                        <View style={s.mSubRow}>
                           <View style={s.mAdBadge}><Text style={s.mAdBadgeText}>광고·제휴</Text></View>
+                          <Text style={[s.mSub, { fontSize: 13 * fs }]}>{m.sponsor} · 대화 {m.turnsRequired}번이면 완료</Text>
                         </View>
-                        <Text style={[s.mSub, { fontSize: 13 * fs }]}>{m.sponsor} · 대화 {m.turnsRequired}번이면 완료</Text>
                       </View>
                       <View style={[s.mReward, done && { backgroundColor: T.inset }]}>
                         <Text style={[s.mRewardText, done && { color: T.muted }, { fontSize: 14.5 * fs }]}>{done ? "완료 ✓" : `+${m.reward}P`}</Text>
@@ -460,10 +466,13 @@ const s = StyleSheet.create({
   talkArrow: { color: "#fff", fontSize: 26, fontWeight: "300" },
 
   quickHead: { color: T.muted, fontWeight: "800", fontSize: 14.5, marginTop: 24, marginBottom: 12 },
-  chipWrap: { gap: 10 },
-  chip: { flexDirection: "row", alignItems: "center", backgroundColor: T.card, borderRadius: 16, borderWidth: 1, borderColor: T.line, paddingVertical: 16, paddingHorizontal: 16, gap: 13 },
+  chipWrap: { gap: 8 },
+  // 토스식 리스트 행: 원형 아이콘 + 라벨 + 우측 화살표, 보더 없는 흰 카드.
+  chip: { flexDirection: "row", alignItems: "center", backgroundColor: T.card, borderRadius: 16, paddingVertical: 14, paddingHorizontal: 16, gap: 14 },
+  chipIcon: { width: 44, height: 44, borderRadius: 22, backgroundColor: T.brandSoft, justifyContent: "center", alignItems: "center" },
   chipEmoji: { fontSize: 20 },
-  chipText: { fontSize: 16, fontWeight: "700", color: T.ink },
+  chipText: { flex: 1, fontSize: 16, fontWeight: "700", color: T.ink },
+  chipArrow: { color: "#B0B8C1", fontSize: 22, fontWeight: "300" },
 
   userBubble: { alignSelf: "flex-end", backgroundColor: T.brand, borderRadius: 22, borderBottomRightRadius: 7, paddingVertical: 13, paddingHorizontal: 17, maxWidth: "85%", marginBottom: 14, shadowColor: T.brand, shadowOpacity: 0.18, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 2 },
   userText: { color: "#fff", fontSize: 16.5, fontWeight: "700", lineHeight: 23 },
@@ -502,7 +511,7 @@ const s = StyleSheet.create({
 
   nudge: { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: T.accentSoft, borderRadius: 16, borderWidth: 1, borderColor: T.accentLine, paddingVertical: 13, paddingHorizontal: 15, marginBottom: 12 },
   nudgeEmoji: { fontSize: 19 },
-  nudgeText: { flex: 1, color: "#8a5626", fontWeight: "800", fontSize: 14.5 },
+  nudgeText: { flex: 1, color: T.accent, fontWeight: "800", fontSize: 14.5 },
   nudgeGo: { color: T.accent, fontWeight: "800", fontSize: 13.5 },
 
   noAd: { backgroundColor: T.inset, borderRadius: 13, padding: 13, marginBottom: 12 },
@@ -516,13 +525,16 @@ const s = StyleSheet.create({
   // 스폰서 대화 미션(대화하면 돈 버는 루프)
   mHeadRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 },
   mHead: { fontWeight: "900", color: T.ink, fontSize: 16 },
-  streakChip: { color: "#b3541e", fontWeight: "800", fontSize: 12.5, backgroundColor: T.accentSoft, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, overflow: "hidden" },
-  mCard: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: T.card, borderWidth: 1, borderColor: T.line, borderRadius: 16, paddingVertical: 14, paddingHorizontal: 15, marginBottom: 9 },
+  streakChip: { color: T.accent, fontWeight: "800", fontSize: 12.5, backgroundColor: T.accentSoft, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, overflow: "hidden" },
+  mCard: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: T.card, borderRadius: 16, paddingVertical: 14, paddingHorizontal: 16, marginBottom: 8 },
+  mIcon: { width: 44, height: 44, borderRadius: 22, backgroundColor: T.brandSoft, justifyContent: "center", alignItems: "center" },
+  mIconEmoji: { fontSize: 20 },
   mTitleRow: { flexDirection: "row", alignItems: "center", gap: 7 },
   mTitle: { fontWeight: "800", color: T.ink, fontSize: 15.5, flexShrink: 1 },
-  mAdBadge: { backgroundColor: T.adLabelBg, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
-  mAdBadgeText: { color: "#fff", fontWeight: "800", fontSize: 10 },
-  mSub: { color: T.muted, fontSize: 13, marginTop: 3 },
+  mSubRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4, flexWrap: "wrap" },
+  mAdBadge: { backgroundColor: T.inset, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
+  mAdBadgeText: { color: T.muted, fontWeight: "800", fontSize: 10 },
+  mSub: { color: T.muted, fontSize: 13, flexShrink: 1 },
   mReward: { backgroundColor: T.brandSoft, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8 },
   mRewardText: { color: T.brand, fontWeight: "900", fontSize: 14.5 },
   missionBar: { alignItems: "center", paddingVertical: 7, backgroundColor: T.brandSoft, borderTopWidth: 1, borderTopColor: "#cfe4da" },
@@ -534,13 +546,13 @@ const s = StyleSheet.create({
   missionDoneGo: { color: "#fff", fontWeight: "900", fontSize: 14.5 },
 
   gate: { backgroundColor: T.accentSoft, borderRadius: 20, borderWidth: 1, borderColor: T.accentLine, padding: 18, marginBottom: 12, alignItems: "center" },
-  gateTitle: { color: "#8a5626", fontWeight: "900", fontSize: 17, marginBottom: 6, textAlign: "center" },
-  gateBody: { color: "#8a5626", fontSize: 14.5, lineHeight: 21, textAlign: "center", marginBottom: 14 },
+  gateTitle: { color: T.accent, fontWeight: "900", fontSize: 17, marginBottom: 6, textAlign: "center" },
+  gateBody: { color: T.accent, fontSize: 14.5, lineHeight: 21, textAlign: "center", marginBottom: 14 },
   gateBtn: { backgroundColor: T.accent, borderRadius: 16, paddingVertical: 15, paddingHorizontal: 22, alignSelf: "stretch", alignItems: "center" },
   gateBtnText: { color: "#fff", fontWeight: "900", fontSize: 16 },
-  gateAlt: { color: "#a9743a", fontWeight: "700", fontSize: 13.5, marginTop: 12 },
+  gateAlt: { color: T.accent, fontWeight: "700", fontSize: 13.5, marginTop: 12 },
   remainBar: { alignItems: "center", paddingVertical: 6, backgroundColor: T.accentSoft, borderTopWidth: 1, borderTopColor: T.accentLine },
-  remainText: { color: "#8a5626", fontWeight: "700", fontSize: 13 },
+  remainText: { color: T.accent, fontWeight: "700", fontSize: 13 },
   inputBar: { flexDirection: "row", alignItems: "flex-end", gap: 9, paddingHorizontal: 14, paddingTop: 9, paddingBottom: Platform.OS === "ios" ? 26 : 12, backgroundColor: T.card, borderTopWidth: 1, borderTopColor: T.line },
   inputWrap: { flex: 1, backgroundColor: T.bg, borderRadius: 22, borderWidth: 1, borderColor: T.line, paddingHorizontal: 17, justifyContent: "center", minHeight: 50, maxHeight: 130 },
   input: { fontSize: 16.5, color: T.ink, paddingVertical: Platform.OS === "ios" ? 13 : 8 },

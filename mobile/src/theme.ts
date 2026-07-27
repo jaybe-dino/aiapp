@@ -1,28 +1,28 @@
-// 혜택AI 디자인 토큰 — 따뜻하고 친근한 시니어 팔레트(예시 UX 기준).
-// 크림 배경 + 딥그린 브랜드 + 테라코타 보상 강조 + 그린 체크칩.
+// 혜택AI 디자인 토큰 — 토스 디자인 시스템(TDS) 문법 적용, 브랜드 컬러만 그린.
+// 원칙: 그레이 배경 + 보더 없는 흰 카드, 8pt 간격 그리드, 잉크/세컨더리 2단 타이포.
 export const T = {
-  bg: "#f0eee6", // 따뜻한 크림 배경
-  card: "#ffffff",
-  inset: "#f5f2ec", // 카드 내부 정보 박스
-  ink: "#2e2c26", // 웜 다크(거의 검정)
-  muted: "#6b6459", // 웜 그레이(크림 배경 대비 4.5:1↑, WCAG AA)
-  line: "#e7e3d8",
+  bg: "#F2F4F6", // 토스 그레이 배경
+  card: "#FFFFFF",
+  inset: "#F6F8FA", // 카드 내부 정보 박스(옅은 그레이)
+  ink: "#191F28", // 토스 잉크(진회색 블랙)
+  muted: "#6B7684", // 세컨더리 텍스트(흰 배경 대비 4.9:1, AA)
+  line: "#EEF1F4", // 헤어라인(거의 안 보이게)
 
-  brand: "#0E7A5F", // 딥 그린(주요 버튼·활성 탭·유저 말풍선)
-  brandDark: "#0a6350",
-  brandSoft: "#e3efe9", // 민트 서피스(AI칩·사용가능·체크칩)
+  brand: "#059669", // 그린(주요 버튼·활성 탭·유저 말풍선)
+  brandDark: "#047857", // 텍스트용 딥 그린(AA 4.5:1↑)
+  brandSoft: "#E8F5EF", // 그린 서피스
 
-  accent: "#c1743c", // 테라코타(예상 보상·확인 중 강조)
-  accentSoft: "#faf1e6", // 오퍼 카드 배경 틴트
-  accentLine: "#eddcc0", // 오퍼 카드 테두리
-  adLabelBg: "#b0703e", // 광고 라벨 배경(테라코타)
+  accent: "#B45309", // 앰버(예상 보상·확인 중 강조, AA)
+  accentSoft: "#FFF7EB", // 웜 카드 배경 틴트
+  accentLine: "#F3E4C8", // 웜 카드 테두리(옅게)
+  adLabelBg: "#8B95A1", // 광고 라벨(뉴트럴 그레이 — 명확하되 소란스럽지 않게)
 
-  available: "#0E7A5F",
-  pending: "#c1743c",
-  reversed: "#b00020",
+  available: "#047857",
+  pending: "#B45309",
+  reversed: "#D22030",
 
-  radiusCard: 22,
-  radiusBtn: 16,
+  radiusCard: 20,
+  radiusBtn: 14,
 };
 
 export const won = (n: number | null | undefined) => (n ?? 0).toLocaleString("ko-KR") + "원";

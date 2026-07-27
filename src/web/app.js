@@ -105,10 +105,12 @@ async function renderAI() {
     sec.appendChild(el(`<div class="m-head-row"><span class="m-head">💰 대화하고 포인트 받기</span>${streakHtml}</div>`));
     r.missions.forEach((m) => {
       const done = m.state === "completed";
+      const emoji = { cm_health: "💪", cm_travel: "🍁", cm_saving: "🛒" }[m.missionId] || "🎁";
       const card = el(`<button class="m-card${done ? " done" : ""}">
+        <span class="m-icon">${emoji}</span>
         <span class="m-body">
-          <span class="m-title-row"><span class="m-title">${esc(m.title)}</span><span class="m-ad">광고·제휴</span></span>
-          <span class="m-sub">${esc(m.sponsor)} · 대화 ${m.turnsRequired}번이면 완료</span>
+          <span class="m-title">${esc(m.title)}</span>
+          <span class="m-sub"><span class="m-ad">광고·제휴</span>${esc(m.sponsor)} · 대화 ${m.turnsRequired}번이면 완료</span>
         </span>
         <span class="m-reward">${done ? "완료 ✓" : `+${m.reward}P`}</span>
       </button>`);
