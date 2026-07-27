@@ -112,7 +112,7 @@ const s = StyleSheet.create({
   msWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   ms: { width: 44, height: 44, borderRadius: 12, justifyContent: "center", alignItems: "center" },
   msLock: { backgroundColor: T.inset },
-  msCan: { backgroundColor: "#faf1e6", borderWidth: 1.5, borderColor: T.accentLine },
+  msCan: { backgroundColor: T.accentSoft, borderWidth: 1.5, borderColor: T.accentLine },
   msDone: { backgroundColor: T.brandSoft },
   msText: { fontWeight: "800", fontSize: 13 },
   disclose: { backgroundColor: T.inset, borderRadius: 12, padding: 12, marginTop: 12 },

@@ -78,7 +78,7 @@ const s = StyleSheet.create({
   sub: { color: T.muted, marginTop: 4, marginBottom: 16, fontSize: 15 },
   label: { color: T.muted, fontWeight: "700", marginBottom: 6, fontSize: 14 },
   input: { backgroundColor: T.card, borderWidth: 1, borderColor: T.line, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 14, fontSize: 16.5, color: T.ink },
-  disclose: { backgroundColor: "#faf1e6", borderWidth: 1, borderColor: T.accentLine, borderRadius: 14, padding: 14, marginTop: 6, marginBottom: 14 },
+  disclose: { backgroundColor: T.accentSoft, borderWidth: 1, borderColor: T.accentLine, borderRadius: 14, padding: 14, marginTop: 6, marginBottom: 14 },
   discloseH: { fontWeight: "800", color: "#7a5b1e", marginBottom: 6 },
   discloseT: { color: "#7a5b1e", fontSize: 13.5, lineHeight: 21 },
   checkRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 16 },

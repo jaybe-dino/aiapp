@@ -51,7 +51,7 @@ export default function RewardScreen() {
     if (state === "available") return { bg: T.brandSoft, c: T.brand, t: "사용 가능" };
     if (state === "reversed") return { bg: "#fbe9e6", c: T.reversed, t: "취소됨" };
     if (state === "paid") return { bg: T.inset, c: T.muted, t: "사용 완료" };
-    return { bg: "#faf1e6", c: T.accent, t: "확인 중" };
+    return { bg: T.accentSoft, c: T.accent, t: "확인 중" };
   }
 
   return (

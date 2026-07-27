@@ -68,6 +68,6 @@ const s = StyleSheet.create({
   segActive: { backgroundColor: T.card, shadowColor: "#000", shadowOpacity: 0.06, shadowRadius: 4, shadowOffset: { width: 0, height: 1 }, elevation: 1 },
   segText: { color: T.muted, fontWeight: "700", fontSize: 15.5 },
   segTextActive: { color: T.brand, fontWeight: "800" },
-  notice: { backgroundColor: "#faf1e6", borderRadius: 12, padding: 13, marginBottom: 14, borderWidth: 1, borderColor: T.accentLine },
+  notice: { backgroundColor: T.accentSoft, borderRadius: 12, padding: 13, marginBottom: 14, borderWidth: 1, borderColor: T.accentLine },
   noticeText: { color: "#7a5b1e", fontSize: 13.5, lineHeight: 20 },
 });
