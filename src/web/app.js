@@ -68,12 +68,16 @@ async function renderAI() {
         <div id="hi"><div class="hello">안녕하세요 👋</div><div class="h-big">무엇이든 편하게<br>물어보세요</div></div>
         <div class="quick-head">이렇게 물어보세요</div>
         <div id="quicks"></div>
+        <div id="missionSec"></div>
       </div>
       <div id="thread"></div>
-      <div class="ask chat-input">
-        <span class="muted">✎</span>
-        <input id="q" placeholder="메시지를 입력하세요" />
-        <button class="send-btn" id="send" aria-label="보내기">↑</button>
+      <div class="dock">
+        <div id="missionBar"></div>
+        <div class="ask chat-input">
+          <span class="muted">✎</span>
+          <input id="q" placeholder="메시지를 입력하세요" />
+          <button class="send-btn" id="send" aria-label="보내기">↑</button>
+        </div>
       </div>
     </div>`));
   const quicks = v.querySelector("#quicks");
@@ -94,8 +98,44 @@ async function renderAI() {
     const act = box.querySelector(".pro-action");
     if (act) act.addEventListener("click", () => { const map = { "걷기": "walk", "내보상": "reward" }; document.querySelector(`#tabbar button[data-tab="${map[p.action.tab] || p.action.tab}"]`)?.click(); });
   }).catch(() => {});
+  // 스폰서 대화 미션 — '대화하면 돈 버는' 루프('광고·제휴' 라벨로 투명하게).
+  api("/v1/chat/missions").then((r) => {
+    const sec = v.querySelector("#missionSec"); if (!sec || !r?.missions?.length) return;
+    const streakHtml = r.streak && r.streak.days >= 2 ? `<span class="streak-chip">🔥 ${r.streak.days}일 연속 대화</span>` : "";
+    sec.appendChild(el(`<div class="m-head-row"><span class="m-head">💰 대화하고 포인트 받기</span>${streakHtml}</div>`));
+    r.missions.forEach((m) => {
+      const done = m.state === "completed";
+      const card = el(`<button class="m-card${done ? " done" : ""}">
+        <span class="m-body">
+          <span class="m-title-row"><span class="m-title">${esc(m.title)}</span><span class="m-ad">광고·제휴</span></span>
+          <span class="m-sub">${esc(m.sponsor)} · 대화 ${m.turnsRequired}번이면 완료</span>
+        </span>
+        <span class="m-reward">${done ? "완료 ✓" : `+${m.reward}P`}</span>
+      </button>`);
+      if (!done) card.addEventListener("click", async () => {
+        try {
+          const s = await api(`/v1/chat/missions/${m.missionId}/start`, { method: "POST", body: "{}" });
+          activeMission = { title: m.title, reward: m.reward, turns: 0, turnsRequired: s.turnsRequired };
+          renderMissionBar();
+          ask(s.opening);
+        } catch (e) { /* 이미 완료 등 */ }
+      });
+      sec.appendChild(card);
+    });
+  }).catch(() => {});
+  renderMissionBar();
   // 이미 진행 중인 대화가 있으면(탭 전환 후 복귀) 대화 내용을 유지 렌더
   if (chatLog.length) { document.querySelector("#emptyState").style.display = "none"; chatLog.forEach((node) => document.querySelector("#thread").appendChild(node)); scrollChatToEnd(); }
+}
+
+// 진행 중 미션 핀(입력창 위) — 몇 번 더 대화하면 얼마 받는지 항상 보이게.
+let activeMission = null;
+function renderMissionBar() {
+  const bar = document.querySelector("#missionBar"); if (!bar) return;
+  bar.innerHTML = "";
+  if (activeMission && activeMission.turns < activeMission.turnsRequired) {
+    bar.appendChild(el(`<div class="mission-bar">🎁 ${esc(activeMission.title)} ${activeMission.turns}/${activeMission.turnsRequired} · 완료하면 +${activeMission.reward}P</div>`));
+  }
 }
 
 // 탭 전환에도 대화가 유지되도록 렌더된 메시지 노드를 보관
@@ -129,6 +169,11 @@ async function ask(text) {
       thread.appendChild(gate); chatLog.push(gate);
       scrollChatToEnd();
       return;
+    }
+    // 미션 진행 갱신(완료면 핀 제거 — 축하 카드는 answerBlock에서)
+    if (r.mission) {
+      activeMission = r.mission.completed ? null : { title: r.mission.title, reward: r.mission.reward, turns: r.mission.turns, turnsRequired: r.mission.turnsRequired };
+      renderMissionBar();
     }
     const block = answerBlock(r);
     thread.appendChild(block); chatLog.push(block);
@@ -184,6 +229,17 @@ function answerBlock(r) {
     </div>`);
   const ad = block.querySelector("#ad");
   if (r.safetyNotice) ad.appendChild(safetyCard(r.safetyNotice));
+  // 대화 미션 완료 축하 — 대화로 돈 벌었음을 즉시 체감시킨다.
+  if (r.mission && r.mission.completed) {
+    const cel = el(`<div class="mission-done">
+      <div class="md-title">🎉 미션 완료! +${r.mission.reward}P 적립</div>
+      <div class="md-sub">${esc(r.mission.sponsor)} · ${esc(r.mission.title)}</div>
+      <button class="md-btn">내 보상에서 확인 ›</button>
+    </div>`);
+    cel.querySelector(".md-btn").addEventListener("click", () => document.querySelector('#tabbar button[data-tab="reward"]')?.click());
+    ad.appendChild(cel);
+    refreshWallet();
+  }
   const need = r.needLevel || (r.matched && r.matched.benefits && r.matched.benefits.length ? "ready" : "none");
   const benefits = (r.matched && r.matched.benefits) || (r.commercial ? [r.commercial] : []);
   const missions = (r.matched && r.matched.missions) || [];
@@ -230,7 +286,7 @@ function softSuggestion(o, answerSnapshotId) {
   const wrap = el(`<div>
     <button class="soft-sug">
       <span class="e">💡</span>
-      <span class="tx"><span class="soft-h"><b>관련해서 도움받을 수 있어요</b><span class="soft-ad">광고·제휴</span></span><span class="sub">${esc(o.title)} · 확정 시 최대 ${won(o.expectedReward)}</span></span>
+      <span class="tx"><span class="soft-h"><b>관련 혜택이 있어요</b><span class="soft-ad">광고·제휴</span></span><span class="sub">${esc(o.title)} · 확정 시 최대 ${won(o.expectedReward)}</span></span>
       <span class="tg">보기</span>
     </button>
     <div class="soft-body" style="display:none"></div>
@@ -437,7 +493,7 @@ async function renderReward() {
     const cls = r.state === "available" ? "available" : r.state === "reversed" ? "reversed" : r.state === "paid" ? "paid" : "pending";
     const card = el(`<div class="card">
         <div class="row"><span style="font-weight:800">${esc(r.title)}</span><span class="pill ${cls}">${r.state_label}</span></div>
-        <div class="row"><span class="k">${esc(sourceLabel(r.source))}</span><span class="v">${won(r.amount)}</span></div>
+        <div class="row"><span class="k">${sourceLabel(r.source) === r.title ? "" : esc(sourceLabel(r.source))}</span><span class="v">${won(r.amount)}</span></div>
         <button class="btn btn-ghost" data-id="${r.reward_transaction_id}" style="width:100%">진행 상태 보기</button>
       </div>`);
     card.querySelector("button").addEventListener("click", () => showTimeline(r.reward_transaction_id));

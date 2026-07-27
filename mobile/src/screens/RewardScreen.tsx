@@ -83,7 +83,7 @@ export default function RewardScreen() {
           return (
             <View key={r.reward_transaction_id} style={s.card}>
               <View style={s.row}><Text style={[s.title, { fontSize: 16 * fs }]}>{r.title}</Text><Pill {...p} fs={fs} /></View>
-              <View style={s.row}><Text style={[s.k, { fontSize: 15 * fs }]}>{SRC[r.source] ?? r.source}</Text><Text style={[s.v, { fontSize: 15 * fs }]}>{won(r.amount)}</Text></View>
+              <View style={s.row}><Text style={[s.k, { fontSize: 15 * fs }]}>{(SRC[r.source] ?? r.source) === r.title ? "" : SRC[r.source] ?? r.source}</Text><Text style={[s.v, { fontSize: 15 * fs }]}>{won(r.amount)}</Text></View>
               {eta && <Text style={[s.eta, { fontSize: 13 * fs, lineHeight: 19 * fs }]}>⏳ {eta}</Text>}
               <TouchableOpacity style={s.ghost} onPress={() => showTimeline(r.reward_transaction_id)}><Text style={[s.ghostText, { fontSize: 15 * fs }]}>진행 상태 보기</Text></TouchableOpacity>
             </View>

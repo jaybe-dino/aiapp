@@ -10,6 +10,8 @@ html { font-size: 18px; }
 body {
   margin: 0; font-family: -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
   background: var(--bg); color: var(--ink); line-height: 1.55; padding-bottom: 88px;
+  /* 한국어 어절 단위 줄바꿈 — 단어 중간에서 꺾이지 않아 시니어 가독성이 크게 좋아진다 */
+  word-break: keep-all; overflow-wrap: break-word;
 }
 .topbar {
   position: sticky; top: 0; z-index: 5; display: flex; align-items: center; justify-content: space-between;
@@ -98,7 +100,9 @@ button, .btn {
 #thread { display:flex; flex-direction:column; padding-bottom:8px; }
 .msg-row { margin-top:14px; }
 .msg-row:first-child { margin-top:4px; }
-.chat-input { position:sticky; bottom:74px; margin-top:auto; box-shadow:0 -8px 16px var(--bg); }
+/* 입력 도크 — 미션 진행 핀 + 입력창을 함께 하단 고정(핀이 스크롤에 묻히지 않게) */
+.dock { position:sticky; bottom:74px; margin-top:auto; }
+.chat-input { box-shadow:0 -8px 16px var(--bg); }
 
 /* 대화 */
 .user-bubble { align-self:flex-end; background:var(--brand); color:#fff; border-radius:20px; border-bottom-right-radius:6px; padding:13px 16px; font-weight:700; font-size:1.05rem; max-width:88%; margin:0 0 12px auto; width:fit-content; }
@@ -182,6 +186,29 @@ button, .btn {
 .nudge-chip .tx { flex:1; color:#8a5626; font-weight:800; font-size:.95rem; }
 .nudge-chip .go { color:var(--accent); font-weight:800; font-size:.85rem; }
 
+/* 스폰서 대화 미션 — 대화하면 돈 버는 루프 */
+.m-head-row { display:flex; align-items:center; justify-content:space-between; margin:26px 0 10px; }
+.m-head { font-weight:900; color:var(--ink); font-size:1rem; }
+.streak-chip { color:#b3541e; font-weight:800; font-size:.78rem; background:var(--accent-soft); border-radius:999px; padding:4px 10px; }
+.m-card { display:flex; align-items:center; gap:12px; width:100%; text-align:left; cursor:pointer;
+  background:var(--card); border:1px solid var(--line); border-radius:16px; padding:14px 15px; margin-bottom:9px; }
+.m-card:active { transform:translateY(1px); }
+.m-card.done { opacity:.55; cursor:default; }
+.m-body { flex:1; display:flex; flex-direction:column; gap:3px; }
+.m-title-row { display:flex; align-items:center; gap:7px; }
+.m-title { font-weight:800; color:var(--ink); font-size:.97rem; min-width:0; }
+.m-ad { background:var(--ad); color:#fff; font-weight:800; font-size:.62rem; padding:2px 6px; border-radius:6px; white-space:nowrap; flex-shrink:0; }
+.m-sub { color:var(--muted); font-size:.82rem; }
+.m-reward { background:var(--brand-soft); color:var(--brand); font-weight:900; font-size:.9rem; border-radius:12px; padding:8px 12px; white-space:nowrap; flex-shrink:0; }
+.m-card.done .m-reward { background:var(--inset); color:var(--muted); }
+.mission-bar { text-align:center; margin:0 4px 8px; padding:9px 14px; background:var(--brand); border-radius:999px;
+  color:#fff; font-weight:800; font-size:.84rem; box-shadow:0 4px 12px rgba(46,125,91,.3); }
+.mission-done { background:var(--brand-soft); border:1px solid #cfe4da; border-radius:18px; padding:17px; margin-top:10px; text-align:center; }
+.mission-done .md-title { color:var(--brand-dark); font-weight:900; font-size:1.05rem; }
+.mission-done .md-sub { color:var(--brand); font-weight:700; font-size:.85rem; margin-top:4px; }
+.mission-done .md-btn { margin-top:12px; background:var(--brand); color:#fff; border:none; border-radius:12px;
+  padding:11px 18px; font-weight:900; font-size:.9rem; cursor:pointer; }
+
 /* 대화 연장 광고 게이트 */
 .card.gate { background:var(--accent-soft); border:1px solid var(--accent-line); text-align:center; }
 .card.gate .gate-title { color:#8a5626; font-weight:900; font-size:1.05rem; margin-bottom:6px; }
@@ -194,7 +221,7 @@ button, .btn {
 /* none — 광고 미노출 안내(차분) */
 .ai-note { background:var(--inset); border-radius:13px; padding:13px; margin-top:10px; color:var(--muted); font-size:.85rem; line-height:1.5; }
 .soft-sug .soft-h { display:flex; align-items:center; gap:7px; }
-.soft-sug .soft-ad { background:var(--ad); color:#fff; font-weight:800; font-size:.62rem; padding:2px 6px; border-radius:6px; }
+.soft-sug .soft-ad { background:var(--ad); color:#fff; font-weight:800; font-size:.62rem; padding:2px 6px; border-radius:6px; white-space:nowrap; flex-shrink:0; }
 
 /* 설정 화면 */
 .set-sec { color: var(--muted); font-weight: 800; font-size: .9rem; margin: 22px 0 8px; }

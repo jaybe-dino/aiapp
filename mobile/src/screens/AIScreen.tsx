@@ -224,7 +224,7 @@ export default function AIScreen() {
                           <Text style={[s.mTitle, { fontSize: 15.5 * fs }]}>{m.title}</Text>
                           <View style={s.mAdBadge}><Text style={s.mAdBadgeText}>광고·제휴</Text></View>
                         </View>
-                        <Text style={[s.mSub, { fontSize: 13 * fs }]}>{m.sponsor} · 짧은 대화 {m.turnsRequired}번이면 완료</Text>
+                        <Text style={[s.mSub, { fontSize: 13 * fs }]}>{m.sponsor} · 대화 {m.turnsRequired}번이면 완료</Text>
                       </View>
                       <View style={[s.mReward, done && { backgroundColor: T.inset }]}>
                         <Text style={[s.mRewardText, done && { color: T.muted }, { fontSize: 14.5 * fs }]}>{done ? "완료 ✓" : `+${m.reward}P`}</Text>
@@ -370,7 +370,7 @@ function SoftSuggestion({ benefit, answerSnapshotId }: { benefit: Offer; answerS
         <Text style={s.softEmoji}>💡</Text>
         <View style={{ flex: 1 }}>
           <View style={s.softTitleRow}>
-            <Text style={s.softTitle}>관련해서 도움받을 수 있어요</Text>
+            <Text style={s.softTitle}>관련 혜택이 있어요</Text>
             <View style={s.softAdBadge}><Text style={s.softAdBadgeText}>광고·제휴</Text></View>
           </View>
           <Text style={s.softSub}>{benefit.title} · 확정 시 최대 {won(benefit.expectedReward)}</Text>
@@ -519,7 +519,7 @@ const s = StyleSheet.create({
   streakChip: { color: "#b3541e", fontWeight: "800", fontSize: 12.5, backgroundColor: T.accentSoft, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, overflow: "hidden" },
   mCard: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: T.card, borderWidth: 1, borderColor: T.line, borderRadius: 16, paddingVertical: 14, paddingHorizontal: 15, marginBottom: 9 },
   mTitleRow: { flexDirection: "row", alignItems: "center", gap: 7 },
-  mTitle: { fontWeight: "800", color: T.ink, fontSize: 15.5 },
+  mTitle: { fontWeight: "800", color: T.ink, fontSize: 15.5, flexShrink: 1 },
   mAdBadge: { backgroundColor: T.adLabelBg, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
   mAdBadgeText: { color: "#fff", fontWeight: "800", fontSize: 10 },
   mSub: { color: T.muted, fontSize: 13, marginTop: 3 },
