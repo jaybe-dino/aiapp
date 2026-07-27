@@ -12,6 +12,7 @@ import { rateLimit } from "./lib/ratelimit.js";
 import { str, int } from "./lib/validate.js";
 import { handleTurn } from "./modules/ai/orchestrator.js";
 import { chatStatus, watchChatAd } from "./modules/ai/chatgate.js";
+import { listChatMissions, startChatMission, chatStreak } from "./modules/ai/chatmission.js";
 import {
   listShoppingOffers,
   listMissionOffers,
@@ -127,6 +128,15 @@ export function registerRoutes(app: FastifyInstance) {
     const text = str(req.body?.text, "질문 내용", { min: 1, max: 2000 });
     const result = await handleTurn({ conversationId, userId, question: text });
     return result;
+  });
+
+  // --- 스폰서 대화 미션(대화하면 돈 버는 루프) --------------------------
+  app.get("/v1/chat/missions", async (req) => {
+    const userId = uid(req);
+    return { missions: listChatMissions(userId), streak: chatStreak(userId) };
+  });
+  app.post("/v1/chat/missions/:missionId/start", async (req: FastifyRequest<{ Params: { missionId: string } }>) => {
+    return startChatMission(uid(req), req.params.missionId);
   });
 
   // --- 대화 게이트(무료 대화 + 광고 보고 이어가기) ---------------------

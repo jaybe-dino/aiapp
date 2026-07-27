@@ -464,7 +464,7 @@ async function exchange(available) {
   } catch (e) { toast(e.title || "교환 실패"); }
 }
 
-function sourceLabel(s) { return ({ shopping_cps: "쇼핑 적립", offerwall_cpa: "미션 보상", cashwalk_ad: "걷기 보상", rental_cpa: "렌탈 보상", chat_ad: "대화 연장 보상" })[s] || s; }
+function sourceLabel(s) { return ({ shopping_cps: "쇼핑 적립", offerwall_cpa: "미션 보상", cashwalk_ad: "걷기 보상", rental_cpa: "렌탈 보상", chat_ad: "대화 연장 보상", sponsor_chat: "대화 미션 보상" })[s] || s; }
 
 // ---------- 온보딩(첫 실행) ----------
 const ONB_STEPS = [

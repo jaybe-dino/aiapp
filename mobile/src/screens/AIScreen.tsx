@@ -7,7 +7,7 @@ import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useCallback } from "react";
 import { T, won } from "../theme";
-import { Api, OfferCard as Offer, NeedLevel, RewardNudge, SafetyNotice, Proactive, ChatStatus } from "../api";
+import { Api, OfferCard as Offer, NeedLevel, RewardNudge, SafetyNotice, Proactive, ChatStatus, ChatMissionInfo, MissionProgress, StreakInfo } from "../api";
 import { onFontScale } from "../fontscale";
 import OfferCard from "../components/OfferCard";
 
@@ -27,6 +27,7 @@ type Msg =
       followUps?: string[]; // 이어서 물어볼 후속 질문
       retry?: string; // 실패 시 재시도할 질문
       fallback?: boolean; // 실제 AI가 아닌 '예시' 답변인지 — 정직하게 표시
+      mission?: MissionProgress | null; // 이번 턴의 미션 진행(완료 시 축하 카드)
     };
 
 const QUICK = [
@@ -44,6 +45,9 @@ export default function AIScreen() {
   const [pro, setPro] = useState<Proactive | null>(null);
   const [chat, setChat] = useState<ChatStatus | null>(null);
   const [adBusy, setAdBusy] = useState(false);
+  const [missions, setMissions] = useState<ChatMissionInfo[]>([]);
+  const [streak, setStreak] = useState<StreakInfo | null>(null);
+  const [activeMission, setActiveMission] = useState<MissionProgress | null>(null);
   const convId = useRef<string | null>(null);
   const scrollRef = useRef<ScrollView>(null);
   const inputRef = useRef<TextInput>(null);
@@ -54,6 +58,7 @@ export default function AIScreen() {
   useFocusEffect(useCallback(() => {
     Api.proactive().then(setPro).catch(() => {});
     Api.chatStatus().then(setChat).catch(() => {});
+    Api.chatMissions().then((r) => { setMissions(r.missions); setStreak(r.streak); }).catch(() => {});
   }, []));
 
   // 새 대화 시작 — 대화가 있을 때만 헤더에 '새 대화' 버튼 노출(이어가기/새로 시작 구분).
@@ -114,8 +119,18 @@ export default function AIScreen() {
           safety: r.safetyNotice ?? null,
           followUps: r.followUps ?? [],
           fallback: r.fallback ?? false,
+          mission: r.mission ?? null,
         },
       ]);
+      // 미션 진행 상태 갱신: 완료면 진행 핀 제거 + 목록에 완료 반영, 진행 중이면 핀 업데이트.
+      if (r.mission) {
+        setActiveMission(r.mission.completed ? null : r.mission);
+        if (r.mission.completed) {
+          const done = r.mission.missionId;
+          setMissions((ms) => ms.map((m) => (m.missionId === done ? { ...m, state: "completed" as const } : m)));
+        }
+      }
+      if (r.streak) setStreak(r.streak);
     } catch {
       ease();
       setMessages((m) => [...m.filter((x) => x.role !== "loading"), { role: "ai", summary: "연결이 잠시 불안정해요.", sections: [], uncertainty: "", needLevel: "none", benefits: [], missions: [], rewardNudge: null, answerSnapshotId: "", retry: question }]);
@@ -141,6 +156,17 @@ export default function AIScreen() {
     } finally {
       setAdBusy(false);
     }
+  }
+
+  // 스폰서 대화 미션 시작 → 시작 질문을 자동 전송(대화가 자연스럽게 미션이 됨).
+  async function startMission(m: ChatMissionInfo) {
+    if (busy || m.state === "completed") return;
+    try {
+      const r = await Api.startChatMission(m.missionId);
+      setActiveMission({ missionId: m.missionId, title: m.title, sponsor: m.sponsor, turns: 0, turnsRequired: r.turnsRequired, completed: false, reward: m.reward });
+      setMissions((ms) => ms.map((x) => (x.missionId === m.missionId ? { ...x, state: "active" as const } : x)));
+      await ask(r.opening);
+    } catch { /* 이미 완료 등 */ }
   }
 
   const goTab = (name: string) => nav.navigate(name);
@@ -181,12 +207,46 @@ export default function AIScreen() {
                 </TouchableOpacity>
               ))}
             </View>
+
+            {/* 대화하면 돈 버는 루프 — 스폰서 대화 미션. '광고·제휴' 라벨로 투명하게. */}
+            {missions.length > 0 && (
+              <View style={{ marginTop: 26 }}>
+                <View style={s.mHeadRow}>
+                  <Text style={[s.mHead, { fontSize: 16 * fs }]}>💰 대화하고 포인트 받기</Text>
+                  {streak && streak.days >= 2 && <Text style={[s.streakChip, { fontSize: 12.5 * fs }]}>🔥 {streak.days}일 연속 대화</Text>}
+                </View>
+                {missions.map((m) => {
+                  const done = m.state === "completed";
+                  return (
+                    <TouchableOpacity key={m.missionId} style={[s.mCard, done && { opacity: 0.55 }]} activeOpacity={0.85} disabled={done} onPress={() => startMission(m)}>
+                      <View style={{ flex: 1 }}>
+                        <View style={s.mTitleRow}>
+                          <Text style={[s.mTitle, { fontSize: 15.5 * fs }]}>{m.title}</Text>
+                          <View style={s.mAdBadge}><Text style={s.mAdBadgeText}>광고·제휴</Text></View>
+                        </View>
+                        <Text style={[s.mSub, { fontSize: 13 * fs }]}>{m.sponsor} · 짧은 대화 {m.turnsRequired}번이면 완료</Text>
+                      </View>
+                      <View style={[s.mReward, done && { backgroundColor: T.inset }]}>
+                        <Text style={[s.mRewardText, done && { color: T.muted }, { fontSize: 14.5 * fs }]}>{done ? "완료 ✓" : `+${m.reward}P`}</Text>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            )}
           </View>
         ) : (
           messages.map((m, i) => <MessageView key={i} m={m} goTab={goTab} onRetry={ask} fs={fs} onWatchAd={watchAdAndContinue} adBusy={adBusy} />)
         )}
       </ScrollView>
 
+      {activeMission && !activeMission.completed && (
+        <View style={s.missionBar}>
+          <Text style={[s.missionBarText, { fontSize: 13 * fs }]}>
+            🎁 {activeMission.title} {activeMission.turns}/{activeMission.turnsRequired} · 완료하면 +{activeMission.reward}P
+          </Text>
+        </View>
+      )}
       {lowChat && (
         <View style={s.remainBar}>
           <Text style={[s.remainText, { fontSize: 13 * fs }]}>무료 대화 {chat!.remaining}회 남았어요 · 이후엔 광고 보고 이어가기</Text>
@@ -260,6 +320,17 @@ function MessageView({ m, goTab, onRetry, fs, onWatchAd, adBusy }: { m: Msg; goT
 
       {/* 안전 안내 — 사기·위기·건강·금융. 답변 바로 아래 눈에 띄게. */}
       {m.safety && <SafetyCard notice={m.safety} />}
+
+      {/* 대화 미션 완료 — 대화로 돈 벌었다는 걸 즉시 축하(재방문 동기). */}
+      {m.mission?.completed && (
+        <View style={s.missionDone}>
+          <Text style={[s.missionDoneTitle, { fontSize: 17 * fs }]}>🎉 미션 완료! +{m.mission.reward}P 적립</Text>
+          <Text style={[s.missionDoneSub, { fontSize: 13.5 * fs }]}>{m.mission.sponsor} · {m.mission.title}</Text>
+          <TouchableOpacity style={s.missionDoneBtn} activeOpacity={0.85} onPress={() => goTab("내보상")}>
+            <Text style={[s.missionDoneGo, { fontSize: 14.5 * fs }]}>내 보상에서 확인 ›</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* ready: 전체 카드 즉시 노출 */}
       {m.needLevel === "ready" && m.benefits.map((o) => <OfferCard key={o.offerSnapshotId} offer={o} answerSnapshotId={m.answerSnapshotId} />)}
@@ -441,6 +512,26 @@ const s = StyleSheet.create({
   followChip: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: T.card, borderWidth: 1, borderColor: T.line, borderRadius: 14, paddingVertical: 13, paddingHorizontal: 15, marginBottom: 8 },
   followText: { color: T.brandDark, fontWeight: "700", fontSize: 15, flex: 1 },
   followArrow: { color: T.muted, fontWeight: "300", fontSize: 20 },
+
+  // 스폰서 대화 미션(대화하면 돈 버는 루프)
+  mHeadRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 },
+  mHead: { fontWeight: "900", color: T.ink, fontSize: 16 },
+  streakChip: { color: "#b3541e", fontWeight: "800", fontSize: 12.5, backgroundColor: T.accentSoft, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, overflow: "hidden" },
+  mCard: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: T.card, borderWidth: 1, borderColor: T.line, borderRadius: 16, paddingVertical: 14, paddingHorizontal: 15, marginBottom: 9 },
+  mTitleRow: { flexDirection: "row", alignItems: "center", gap: 7 },
+  mTitle: { fontWeight: "800", color: T.ink, fontSize: 15.5 },
+  mAdBadge: { backgroundColor: T.adLabelBg, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
+  mAdBadgeText: { color: "#fff", fontWeight: "800", fontSize: 10 },
+  mSub: { color: T.muted, fontSize: 13, marginTop: 3 },
+  mReward: { backgroundColor: T.brandSoft, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8 },
+  mRewardText: { color: T.brand, fontWeight: "900", fontSize: 14.5 },
+  missionBar: { alignItems: "center", paddingVertical: 7, backgroundColor: T.brandSoft, borderTopWidth: 1, borderTopColor: "#cfe4da" },
+  missionBarText: { color: T.brandDark, fontWeight: "800", fontSize: 13 },
+  missionDone: { backgroundColor: T.brandSoft, borderWidth: 1, borderColor: "#cfe4da", borderRadius: 18, padding: 17, marginBottom: 12, alignItems: "center" },
+  missionDoneTitle: { color: T.brandDark, fontWeight: "900", fontSize: 17 },
+  missionDoneSub: { color: T.brand, fontWeight: "700", fontSize: 13.5, marginTop: 4 },
+  missionDoneBtn: { marginTop: 12, backgroundColor: T.brand, borderRadius: 12, paddingHorizontal: 18, paddingVertical: 11 },
+  missionDoneGo: { color: "#fff", fontWeight: "900", fontSize: 14.5 },
 
   gate: { backgroundColor: T.accentSoft, borderRadius: 20, borderWidth: 1, borderColor: T.accentLine, padding: 18, marginBottom: 12, alignItems: "center" },
   gateTitle: { color: "#8a5626", fontWeight: "900", fontSize: 17, marginBottom: 6, textAlign: "center" },

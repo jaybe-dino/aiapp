@@ -6,7 +6,7 @@ import { Api } from "../api";
 import { onFontScale } from "../fontscale";
 
 interface Reward { reward_transaction_id: string; title: string; source: string; state: string; state_label: string; amount: number; }
-const SRC: Record<string, string> = { shopping_cps: "쇼핑 적립", offerwall_cpa: "미션 보상", cashwalk_ad: "걷기 보상", rental_cpa: "렌탈 보상", chat_ad: "대화 연장 보상" };
+const SRC: Record<string, string> = { shopping_cps: "쇼핑 적립", offerwall_cpa: "미션 보상", cashwalk_ad: "걷기 보상", rental_cpa: "렌탈 보상", chat_ad: "대화 연장 보상", sponsor_chat: "대화 미션 보상" };
 
 export default function RewardScreen() {
   const [wallet, setWallet] = useState({ available: 0, pending: 0, used: 0 });

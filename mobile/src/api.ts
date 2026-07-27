@@ -95,6 +95,27 @@ export interface ChatStatus {
   adReward: number;
   perUnlock: number;
 }
+// 스폰서 대화 미션 — '대화하면 돈 버는' 루프.
+export interface ChatMissionInfo {
+  missionId: string;
+  sponsor: string;
+  title: string;
+  opening: string;
+  reward: number;
+  turnsRequired: number;
+  turns: number;
+  state: "available" | "active" | "completed";
+}
+export interface MissionProgress {
+  missionId: string;
+  title: string;
+  sponsor: string;
+  turns: number;
+  turnsRequired: number;
+  completed: boolean;
+  reward: number;
+}
+export interface StreakInfo { days: number; bonus: number | null }
 export interface AskResult {
   answerSnapshotId: string;
   answer: {
@@ -113,6 +134,9 @@ export interface AskResult {
   // 무료 대화 소진 → '광고 보고 이어가기' 게이트.
   gated?: boolean;
   chat?: ChatStatus;
+  // 스폰서 대화 미션 진행(완료 시 축하·적립 표시) + 연속 대화 스트릭.
+  mission?: MissionProgress | null;
+  streak?: StreakInfo;
 }
 
 const RealApi = {
@@ -125,6 +149,12 @@ const RealApi = {
   },
   async chatStatus() {
     return req<ChatStatus>("/v1/chat/status");
+  },
+  async chatMissions() {
+    return req<{ missions: ChatMissionInfo[]; streak: StreakInfo }>("/v1/chat/missions");
+  },
+  async startChatMission(missionId: string) {
+    return req<{ missionId: string; opening: string; turnsRequired: number }>(`/v1/chat/missions/${missionId}/start`, { method: "POST", body: "{}" });
   },
   async watchChatAd() {
     return req<{ status: ChatStatus; rewarded: number }>("/v1/chat/ad", { method: "POST", body: "{}" });

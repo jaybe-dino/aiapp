@@ -9,6 +9,7 @@ import { generateAnswer, selectRecommendations, type ChatMessage } from "./provi
 import { chatCandidateBriefs, cardsFromPicks, type IntentContext, type OfferCard } from "../commercial/commercial.js";
 import { logEvent } from "../analytics/events.js";
 import { chatStatus, type ChatStatus } from "./chatgate.js";
+import { progressChatMission, chatStreak, type MissionProgress, type StreakInfo } from "./chatmission.js";
 
 export interface TurnResult {
   answerSnapshotId: string;
@@ -24,6 +25,8 @@ export interface TurnResult {
   followUps: string[]; // 이어서 물어볼 만한 후속 질문(대화 유도)
   gated?: boolean; // 무료 대화 소진 → '광고 보고 이어가기' 필요(answer=null)
   chat?: ChatStatus; // 대화 잔여/개방 상태
+  mission?: MissionProgress | null; // 진행 중 스폰서 대화 미션(완료 시 축하·적립 표시)
+  streak?: StreakInfo; // 연속 대화 일수(3일마다 보너스)
 }
 
 /** 대화 이력(멀티턴 기억): 이 대화의 이전 턴들을 user/assistant 메시지로 복원(최근 N턴). */
@@ -176,6 +179,9 @@ export async function handleTurn(p: { conversationId: string; userId: string; qu
     followUps: policy.safetyNotice?.level === "critical" ? [] : answer.follow_ups,
     gated: false,
     chat: chatStatus(p.userId), // 이번 답변 반영 후 잔여 상태
+    // 스폰서 대화 미션 진행 + 스트릭. 위기(critical) 대화에서는 미션·보상 언급을 하지 않는다(안전 우선).
+    mission: policy.safetyNotice?.level === "critical" ? null : progressChatMission(p.userId),
+    streak: policy.safetyNotice?.level === "critical" ? undefined : chatStreak(p.userId),
   };
 }
 

@@ -13,7 +13,16 @@ const state = {
   region: null as string | null,
   // 일상 대화 + 수익화 미션: 무료 대화 N회 후에는 '광고 보고 이어가기'로 대화를 연장한다.
   chat: { used: 0, free: 5, adUnlocks: 0, adReward: 20, perUnlock: 5 },
+  // 스폰서 대화 미션(대화하면 돈 버는 루프): 주제 대화 완료 → 스폰서 재원으로 즉시 적립.
+  mission: { active: null as { missionId: string; turns: number } | null, completed: new Set<string>() },
+  streakDays: 1, // 데모: 오늘 첫 대화 기준
 };
+
+const CHAT_MISSIONS = [
+  { missionId: "cm_health", sponsor: "○○헬스케어", title: "건강 습관 이야기 나누기", opening: "요즘 나이에 맞는 건강 관리, 뭐부터 하면 좋을까요?", reward: 500, turnsRequired: 3 },
+  { missionId: "cm_travel", sponsor: "△△여행", title: "가을 나들이 계획 세우기", opening: "가을에 당일치기로 다녀올 만한 곳 추천해줘요", reward: 300, turnsRequired: 2 },
+  { missionId: "cm_saving", sponsor: "□□마트", title: "장보기 절약 요령 배우기", opening: "장볼 때 돈 아끼는 요령 좀 알려줘요", reward: 300, turnsRequired: 2 },
+];
 
 function chatAllowance() { return state.chat.free + state.chat.adUnlocks * state.chat.perUnlock; }
 function chatStatusObj() {
@@ -153,6 +162,22 @@ function cannedAnswer(text: string, cat: string) {
 // api.ts 의 Api 와 동일한 시그니처
 export const MockApi = {
   async createConversation() { resetLLM(); return { conversation_id: rid("cnv") }; },
+  async chatMissions() {
+    return {
+      missions: CHAT_MISSIONS.map((m) => ({
+        ...m,
+        turns: state.mission.active?.missionId === m.missionId ? state.mission.active.turns : 0,
+        state: state.mission.completed.has(m.missionId) ? ("completed" as const) : state.mission.active?.missionId === m.missionId ? ("active" as const) : ("available" as const),
+      })),
+      streak: { days: state.streakDays, bonus: null },
+    };
+  },
+  async startChatMission(missionId: string) {
+    const def = CHAT_MISSIONS.find((m) => m.missionId === missionId);
+    if (!def || state.mission.completed.has(missionId)) throw { code: "CONFLICT", title: "오늘 이미 완료한 미션이에요." };
+    state.mission.active = { missionId, turns: 0 };
+    return { missionId, opening: def.opening, turnsRequired: def.turnsRequired };
+  },
   async chatStatus() { return chatStatusObj(); },
   // 광고 시청 완료 → 대화 N회 추가 개방 + 포인트 적립(수익화 미션).
   async watchChatAd() {
@@ -203,6 +228,20 @@ export const MockApi = {
       }
     }
 
+    // 스폰서 대화 미션 진행(위기 대화에서는 미션·보상 언급 없음 — 안전 우선).
+    let mission: any = null;
+    if (!critical && state.mission.active) {
+      const def = CHAT_MISSIONS.find((m) => m.missionId === state.mission.active!.missionId)!;
+      state.mission.active.turns += 1;
+      const completed = state.mission.active.turns >= def.turnsRequired;
+      mission = { missionId: def.missionId, title: def.title, sponsor: def.sponsor, turns: state.mission.active.turns, turnsRequired: def.turnsRequired, completed, reward: def.reward };
+      if (completed) {
+        state.mission.completed.add(def.missionId);
+        state.mission.active = null;
+        addReward("대화 미션 보상", "sponsor_chat", def.reward, true); // 스폰서 재원 → 즉시 사용가능
+      }
+    }
+
     return {
       answerSnapshotId: rid("ans"),
       answer,
@@ -216,6 +255,8 @@ export const MockApi = {
       fallback: safety && safety.level === "critical" ? false : fallback,
       gated: false,
       chat: chatStatusObj(),
+      mission,
+      streak: critical ? undefined : { days: state.streakDays, bonus: null },
     };
   },
   async offers(type: "shopping" | "mission" | "rental") { return { offers: OFFERS[type] ?? [] }; },

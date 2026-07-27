@@ -49,9 +49,9 @@ export function ingestConversion(
     .get(n.supplierId, n.externalConversionId) as { conversion_id: string; status: string } | undefined;
   if (dup) return { conversionId: dup.conversion_id, status: dup.status, duplicate: true };
 
-  // [보안] 자체 광고망 즉시지급 보상(걷기·대화연장)은 서버 내부 경로에서만 생성 가능.
+  // [보안] 자체 광고망 즉시지급 보상(걷기·대화연장·스폰서대화)은 서버 내부 경로에서만 생성 가능.
   // 외부 포스트백이 이 source 로 임의 사용자/금액을 즉시지급하는 사칭을 차단.
-  const internalAdSource = n.source === "cashwalk_ad" || n.source === "chat_ad";
+  const internalAdSource = n.source === "cashwalk_ad" || n.source === "chat_ad" || n.source === "sponsor_chat";
   const cashwalkSpoof = internalAdSource && origin !== "internal";
 
   // 귀속: click_id로 사용자/오퍼 스냅샷 확인
@@ -78,7 +78,7 @@ export function ingestConversion(
     userId = p.user_id ?? userId;
     rewardAmount = p.reward_amount ?? 0;
     commissionAmount = Math.max(0, n.grossAmount - rewardAmount);
-    title = n.source === "chat_ad" ? "대화 연장 광고 보상" : "걷기 광고 보상";
+    title = n.source === "chat_ad" ? "대화 연장 광고 보상" : n.source === "sponsor_chat" ? "대화 미션 보상" : "걷기 광고 보상";
   } else if (click) {
     const snap = db
       .prepare("SELECT reward_amount, commission_amount FROM offer_versions WHERE offer_snapshot_id = ?")

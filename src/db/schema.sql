@@ -365,3 +365,19 @@ CREATE TABLE IF NOT EXISTS reconciliation_runs (
   status     TEXT NOT NULL,              -- matched | mismatch
   created_at TEXT NOT NULL
 );
+
+-- 스폰서 대화 미션 진행 상태(대화하면 돈 버는 핵심 루프).
+-- 하루에 미션별 1회. 대화 턴을 채우면 완료 → 스폰서 재원으로 즉시 보상.
+CREATE TABLE IF NOT EXISTS chat_missions (
+  id           TEXT PRIMARY KEY,
+  user_id      TEXT NOT NULL,
+  day_key      TEXT NOT NULL,              -- YYYY-MM-DD
+  mission_id   TEXT NOT NULL,              -- 카탈로그 미션 id
+  turns        INTEGER NOT NULL DEFAULT 0, -- 채운 대화 턴 수
+  state        TEXT NOT NULL,              -- active | completed
+  reward       INTEGER NOT NULL,
+  created_at   TEXT NOT NULL,
+  updated_at   TEXT NOT NULL,
+  UNIQUE (user_id, day_key, mission_id)
+);
+CREATE INDEX IF NOT EXISTS idx_chat_missions_user_day ON chat_missions(user_id, day_key);
