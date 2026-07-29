@@ -178,7 +178,7 @@ export default function AIScreen() {
 
   return (
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: T.bg }} behavior={Platform.OS === "ios" ? "padding" : "height"} keyboardVerticalOffset={Platform.OS === "ios" ? headerHeight : 0}>
-      <ScrollView ref={scrollRef} style={{ flex: 1 }} contentContainerStyle={{ padding: 18, paddingBottom: 10 }} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" onContentSizeChange={scrollToEnd} showsVerticalScrollIndicator={false}>
+      <ScrollView ref={scrollRef} style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 16, paddingBottom: 10 }} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" onContentSizeChange={scrollToEnd} showsVerticalScrollIndicator={false}>
         {empty ? (
           <View>
             {pro ? (
@@ -469,7 +469,7 @@ const s = StyleSheet.create({
   chipWrap: { gap: 8 },
   // 토스식 리스트 행: 원형 아이콘 + 라벨 + 우측 화살표, 보더 없는 흰 카드.
   chip: { flexDirection: "row", alignItems: "center", backgroundColor: T.card, borderRadius: 16, paddingVertical: 14, paddingHorizontal: 16, gap: 14 },
-  chipIcon: { width: 44, height: 44, borderRadius: 22, backgroundColor: T.brandSoft, justifyContent: "center", alignItems: "center" },
+  chipIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: T.brandSoft, justifyContent: "center", alignItems: "center" },
   chipEmoji: { fontSize: 20 },
   chipText: { flex: 1, fontSize: 16, fontWeight: "700", color: T.ink },
   chipArrow: { color: "#B0B8C1", fontSize: 22, fontWeight: "300" },
@@ -527,7 +527,7 @@ const s = StyleSheet.create({
   mHead: { fontWeight: "900", color: T.ink, fontSize: 16 },
   streakChip: { color: T.accent, fontWeight: "800", fontSize: 12.5, backgroundColor: T.accentSoft, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, overflow: "hidden" },
   mCard: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: T.card, borderRadius: 16, paddingVertical: 14, paddingHorizontal: 16, marginBottom: 8 },
-  mIcon: { width: 44, height: 44, borderRadius: 22, backgroundColor: T.brandSoft, justifyContent: "center", alignItems: "center" },
+  mIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: T.brandSoft, justifyContent: "center", alignItems: "center" },
   mIconEmoji: { fontSize: 20 },
   mTitleRow: { flexDirection: "row", alignItems: "center", gap: 7 },
   mTitle: { fontWeight: "800", color: T.ink, fontSize: 15.5, flexShrink: 1 },

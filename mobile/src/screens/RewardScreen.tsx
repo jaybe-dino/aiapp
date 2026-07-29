@@ -55,7 +55,7 @@ export default function RewardScreen() {
   }
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: T.bg }} contentContainerStyle={{ padding: 18, paddingBottom: 40 }}
+    <ScrollView style={{ flex: 1, backgroundColor: T.bg }} contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 16, paddingBottom: 40 }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} />}>
       <Text style={[s.h, { fontSize: 26 * fs }]}>내 보상</Text>
 

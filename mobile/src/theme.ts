@@ -22,7 +22,7 @@ export const T = {
   reversed: "#D22030",
 
   radiusCard: 20,
-  radiusBtn: 14,
+  radiusBtn: 16,
 };
 
 export const won = (n: number | null | undefined) => (n ?? 0).toLocaleString("ko-KR") + "원";
