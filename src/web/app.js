@@ -52,10 +52,20 @@ function render() {
 }
 
 // ---------- AI 도움 ----------
+// 라인 아이콘(이모지 대신 일관된 스트로크 아이콘 — 원형 배경 위 브랜드색)
+const LIC = (paths) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`;
+const ICONS = {
+  money: LIC('<rect x="2" y="6" width="20" height="12" rx="2.5"/><circle cx="12" cy="12" r="2.6"/><line x1="5.5" y1="12" x2="5.5" y2="12.01"/><line x1="18.5" y1="12" x2="18.5" y2="12.01"/>'),
+  shield: LIC('<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>'),
+  plane: LIC('<line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>'),
+  heart: LIC('<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>'),
+  sun: LIC('<circle cx="12" cy="12" r="4"/><line x1="12" y1="1.5" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22.5"/><line x1="4.6" y1="4.6" x2="6.3" y2="6.3"/><line x1="17.7" y1="17.7" x2="19.4" y2="19.4"/><line x1="1.5" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22.5" y2="12"/><line x1="4.6" y1="19.4" x2="6.3" y2="17.7"/><line x1="17.7" y1="6.3" x2="19.4" y2="4.6"/>'),
+  cart: LIC('<circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>'),
+};
 const QUICK = [
-  { e: "💰", t: "생활비 아끼는 법" },
-  { e: "🛡️", t: "이거 사기인가요?" },
-  { e: "🧳", t: "여행 싸게 가기" },
+  { e: ICONS.money, t: "생활비 아끼는 법" },
+  { e: ICONS.shield, t: "이거 사기인가요?" },
+  { e: ICONS.plane, t: "여행 싸게 가기" },
 ];
 async function renderAI() {
   const w = await refreshWallet();
@@ -102,10 +112,10 @@ async function renderAI() {
   api("/v1/chat/missions").then((r) => {
     const sec = v.querySelector("#missionSec"); if (!sec || !r?.missions?.length) return;
     const streakHtml = r.streak && r.streak.days >= 2 ? `<span class="streak-chip">🔥 ${r.streak.days}일 연속 대화</span>` : "";
-    sec.appendChild(el(`<div class="m-head-row"><span class="m-head">💰 대화하고 포인트 받기</span>${streakHtml}</div>`));
+    sec.appendChild(el(`<div class="m-head-row"><span class="m-head">대화하고 포인트 받기</span>${streakHtml}</div>`));
     r.missions.forEach((m) => {
       const done = m.state === "completed";
-      const emoji = { cm_health: "💪", cm_travel: "🍁", cm_saving: "🛒" }[m.missionId] || "🎁";
+      const emoji = { cm_health: ICONS.heart, cm_travel: ICONS.sun, cm_saving: ICONS.cart }[m.missionId] || ICONS.money;
       const card = el(`<button class="m-card${done ? " done" : ""}">
         <span class="m-icon">${emoji}</span>
         <span class="m-body">
