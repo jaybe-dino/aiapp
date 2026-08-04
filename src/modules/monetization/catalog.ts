@@ -46,6 +46,8 @@ const SAMPLE_SUPPLIERS: SampleSupplier[] = [
   { id: "sup_walk_adnet", name: "걷기광고망", type: "walk_ad", rewardTrafficAllowed: true, hmacSecret: SECRET },
   { id: "sup_rental", name: "렌탈제휴망", type: "rental_cpa", rewardTrafficAllowed: true, hmacSecret: SECRET },
   { id: "sup_coupang", name: "쿠팡파트너스", type: "shopping_cps", rewardTrafficAllowed: false, hmacSecret: SECRET },
+  // 토스쇼핑 쉐어링크(클릭 후 24시간 내 결제 시 결제액 10% 수익) — sharelink.ts 어댑터로 실연동.
+  { id: "sup_toss_sharelink", name: "토스쇼핑 쉐어링크", type: "shopping_cps", rewardTrafficAllowed: true, hmacSecret: SECRET },
 ];
 
 const SAMPLE_OFFERS: SampleOffer[] = [
@@ -55,6 +57,11 @@ const SAMPLE_OFFERS: SampleOffer[] = [
   // 쇼핑
   { offerId: "off_shopping_air", supplierId: "sup_linkprice", category: "shopping", title: "공기청정기 필터 정기배송", advertiserName: "△△리빙", landingDomain: "shop.example.com", priceBand: "mid", highRisk: false, totalCost: 39000, rewardAmount: 1200, commissionAmount: 2600, approvalWindow: "구매 확정 후 7일", cancelTerms: "반품 시 적립 취소", autoRenewal: true, dataSharing: "없음" },
   { offerId: "off_health_food", supplierId: "sup_linkprice", category: "shopping", title: "홍삼정 선물세트", advertiserName: "▽▽헬스", landingDomain: "shop.example.com", priceBand: "mid", highRisk: false, totalCost: 59000, rewardAmount: 1800, commissionAmount: 4000, approvalWindow: "구매 확정 후 7일", cancelTerms: "반품 시 적립 취소", autoRenewal: false, dataSharing: "없음" },
+  // 토스쇼핑 쉐어링크 상품(시니어 인기 카테고리) — 보상 ≈ 결제액 5%(수익 10%의 절반 환원)
+  { offerId: "off_toss_redginseng", supplierId: "sup_toss_sharelink", category: "shopping", title: "홍삼스틱 30포", advertiserName: "토스쇼핑", landingDomain: "link.tossshop.example", priceBand: "low", highRisk: false, totalCost: 29900, rewardAmount: 1490, commissionAmount: 2990, approvalWindow: "구매 확정 후 7일", cancelTerms: "반품 시 적립 취소", autoRenewal: false, dataSharing: "없음" },
+  { offerId: "off_toss_kneeguard", supplierId: "sup_toss_sharelink", category: "shopping", title: "무릎 보호대 (2개입)", advertiserName: "토스쇼핑", landingDomain: "link.tossshop.example", priceBand: "low", highRisk: false, totalCost: 19800, rewardAmount: 990, commissionAmount: 1980, approvalWindow: "구매 확정 후 7일", cancelTerms: "반품 시 적립 취소", autoRenewal: false, dataSharing: "없음" },
+  { offerId: "off_toss_walkshoes", supplierId: "sup_toss_sharelink", category: "shopping", title: "초경량 워킹화", advertiserName: "토스쇼핑", landingDomain: "link.tossshop.example", priceBand: "mid", highRisk: false, totalCost: 49000, rewardAmount: 2450, commissionAmount: 4900, approvalWindow: "구매 확정 후 7일", cancelTerms: "반품 시 적립 취소", autoRenewal: false, dataSharing: "없음" },
+  { offerId: "off_toss_pillow", supplierId: "sup_toss_sharelink", category: "shopping", title: "목편한 메모리폼 베개", advertiserName: "토스쇼핑", landingDomain: "link.tossshop.example", priceBand: "mid", highRisk: false, totalCost: 35900, rewardAmount: 1790, commissionAmount: 3590, approvalWindow: "구매 확정 후 7일", cancelTerms: "반품 시 적립 취소", autoRenewal: false, dataSharing: "없음" },
   // 오퍼월 미션
   { offerId: "off_survey_life", supplierId: "sup_offerwall", category: "survey", title: "생활습관 설문(약 3분)", advertiserName: "□□리서치", landingDomain: "survey.example.com", priceBand: "low", highRisk: false, totalCost: 0, rewardAmount: 300, commissionAmount: 500, approvalWindow: "설문 완료 확인 후 1~2일", cancelTerms: "중복/불성실 응답 시 적립 취소", autoRenewal: false, dataSharing: "설문 응답(비식별)" },
   { offerId: "off_app_install", supplierId: "sup_offerwall", category: "survey", title: "가계부 앱 설치·실행", advertiserName: "☆☆앱", landingDomain: "survey.example.com", priceBand: "low", highRisk: false, totalCost: 0, rewardAmount: 500, commissionAmount: 900, approvalWindow: "설치 확인 후 1~2일", cancelTerms: "즉시 삭제 시 적립 취소", autoRenewal: false, dataSharing: "없음" },

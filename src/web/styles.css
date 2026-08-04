@@ -193,6 +193,19 @@ button, .btn {
 .nudge-chip .tx { flex:1; color:var(--accent); font-weight:800; font-size:.95rem; }
 .nudge-chip .go { color:var(--accent); font-weight:800; font-size:.85rem; }
 
+/* 토스쇼핑식 상품 행 */
+.p-row { display:flex; align-items:center; gap:14px; width:100%; text-align:left; cursor:pointer;
+  background:var(--card); border:0; border-radius:16px; padding:14px 16px; margin-bottom:8px; min-height:auto; }
+.p-row:active { background:var(--inset); }
+.p-thumb { width:56px; height:56px; border-radius:14px; background:var(--inset); display:flex; align-items:center;
+  justify-content:center; font-size:1.7rem; flex-shrink:0; }
+.p-body { flex:1; min-width:0; display:flex; flex-direction:column; gap:4px; }
+.p-name { font-weight:700; color:var(--ink); font-size:.97rem; line-height:1.35; }
+.p-price { font-weight:900; color:var(--ink); font-size:1.08rem; }
+.p-meta { color:var(--muted); font-size:.8rem; display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+.p-cash { color:var(--brand); font-weight:800; font-size:.78rem; background:var(--brand-soft); border-radius:8px; padding:2px 7px; }
+.p-arrow { color:var(--arrow); font-size:1.4rem; font-weight:300; flex-shrink:0; }
+
 /* 스폰서 대화 미션 — 대화하면 돈 버는 루프 */
 .m-head-row { display:flex; align-items:center; justify-content:space-between; margin:26px 0 10px; }
 .m-head { font-weight:900; color:var(--ink); font-size:1rem; }

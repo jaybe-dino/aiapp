@@ -6,11 +6,13 @@ import { config } from "./config.js";
 import { registerRoutes } from "./routes.js";
 import { registerAdminRoutes } from "./admin.routes.js";
 import { seed } from "./db/seed.js";
+import { sampleOfferSource, syncCatalog } from "./modules/monetization/catalog.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 async function main() {
   seed(); // 첫 기동 시 데모 데이터 보장(멱등)
+  syncCatalog(sampleOfferSource); // 기존 DB에도 새 공급사·오퍼 반영(멱등 upsert — 오퍼 피드 동기화)
 
   const app = Fastify({
     // 로그 PII 마스킹: 토큰·서명·연락처 등 민감 헤더를 남기지 않는다(기획안 불변조건 10).

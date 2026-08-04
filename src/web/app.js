@@ -433,8 +433,38 @@ async function renderOfferList(segs, title, sub, seg) {
     const { offers } = await api(`/v1/offers?type=${cur}`);
     list.innerHTML = ""; list.classList.remove("muted");
     if (!offers.length) { list.textContent = "지금은 조건을 만족하는 혜택이 없어요."; list.classList.add("muted"); return; }
-    offers.forEach((o) => list.appendChild(offerCard(o, null)));
+    // 쇼핑은 토스쇼핑식 상품 행(탭하면 상세 카드 펼침), 렌탈·미션은 조건 고지가 중요해 상세 카드 그대로.
+    if (cur === "shopping") offers.forEach((o) => list.appendChild(productRow(o)));
+    else offers.forEach((o) => list.appendChild(offerCard(o, null)));
   } catch { list.textContent = "불러오지 못했어요."; }
+}
+
+// 토스쇼핑식 상품 행 — [썸네일] [상품명·판매처] [가격 + 적립] › . 탭하면 상세 카드 펼침.
+const PRODUCT_EMOJI = [
+  [/홍삼|인삼|영양|비타민/, "🫖"], [/무릎|보호대|찜질/, "🦵"], [/워킹화|운동화|신발/, "👟"],
+  [/베개|이불|침구|매트/, "🛏️"], [/필터|청정기/, "🌬️"], [/호텔|숙박/, "🏨"], [/항공|비행/, "✈️"],
+];
+function productEmoji(title) { for (const [re, e] of PRODUCT_EMOJI) if (re.test(title)) return e; return "🛍️"; }
+function productRow(o) {
+  const wrap = el(`<div></div>`);
+  // 토스쇼핑 문법: 가격은 상품명 '아래'(오른쪽 열 아님) — 상품명이 꺾이지 않는다.
+  const row = el(`<button class="p-row">
+    <span class="p-thumb">${productEmoji(o.title)}</span>
+    <span class="p-body">
+      <span class="p-name">${esc(o.title)}</span>
+      <span class="p-price">${won(o.totalCost)}</span>
+      <span class="p-meta"><span class="p-cash">최대 ${won(o.expectedReward)} 적립</span><span class="m-ad">광고·제휴</span>${esc(o.advertiserName)}</span>
+    </span>
+    <span class="p-arrow">›</span>
+  </button>`);
+  let open = false, detail = null;
+  row.addEventListener("click", () => {
+    open = !open;
+    if (open) { detail = offerCard(o, null); wrap.appendChild(detail); }
+    else if (detail) { detail.remove(); detail = null; }
+  });
+  wrap.appendChild(row);
+  return wrap;
 }
 
 // ---------- 걷기 ----------
