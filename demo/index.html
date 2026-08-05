@@ -314,13 +314,16 @@ button, .btn {
 
 /* 데모 안내 바 + 아티팩트 표시 보정 */
 :root { color-scheme: light; }
-.demo-note { text-align:center; font-size:.78rem; font-weight:700; color:var(--muted); background:var(--inset); padding:7px 12px; }
+.demo-note { display:flex; align-items:center; justify-content:center; gap:4px; text-align:center; font-size:.78rem; font-weight:700; color:var(--muted); background:var(--inset); padding:6px 12px; }
+.demo-note.on { background:var(--brand-soft); color:var(--brand-dark); }
+.note-btn { margin-left:6px; padding:5px 11px; min-height:auto; border-radius:9px; font-size:.75rem; background:var(--brand); color:#fff; font-weight:800; }
+.note-btn.off { background:var(--card); color:var(--muted); }
 </style>
 <header class="topbar">
   <div class="brand">혜택<span>AI</span></div>
   <div class="wallet-mini" id="walletMini">사용 가능 <b>0</b>원</div>
 </header>
-<div class="demo-note">미리보기 데모 · 예시 답변으로 동작해요 (실서비스는 실제 AI + 실시간 검색)</div>
+<div class="demo-note" id="demoNote"></div>
 <main id="view"></main>
 <nav class="tabbar" id="tabbar">
     <button data-tab="ai" class="active"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg></span>AI 도움</button>
@@ -332,8 +335,49 @@ button, .btn {
   </nav>
 <script>
 
-// ---- 내장 데모 목업(예시 답변) — 실서비스는 실제 Claude + 웹검색으로 동작 ----
+// ---- 내장 데모 목업 + 선택적 '실제 AI 연결'(키는 이 브라우저에만 저장) ----
 const __store = (() => { try { localStorage.setItem("_t","1"); localStorage.removeItem("_t"); return localStorage; } catch (e) { const m = {}; return { getItem:k=>m[k]??null, setItem:(k,v)=>{m[k]=String(v)}, removeItem:k=>{delete m[k]} }; } })();
+
+// ---- 실제 Claude 직결(선택) — 키를 넣으면 이 정적 페이지에서도 진짜 대화가 된다.
+let LLM_KEY = __store.getItem("demo_llm_key") || "";
+let LLM_HIST = [];
+const REALTIME = /병원|약국|의원|치과|한의원|맛집|식당|카페|가격|얼마|최저가|시세|환율|주가|주식|영업시간|몇\s*시|여는|근처|주변|가까운|위치|주소|전화번호|연락처|날씨|미세먼지|기온|뉴스|속보|택배|어디서/;
+const LLM_SYS = '당신은 한국 50~70대 사용자를 돕는 따뜻한 생활비서 AI입니다. 매우 짧고 쉽게, 한 문장 결론 먼저. 어려운 말 금지. 병원·가격·날씨처럼 실시간·지역 정보는 반드시 web_search 도구로 검색해 실제 정보(이름·주소·전화)를 답하세요. "검색할 수 없다"고 하지 마세요. 의학 진단·처방은 의사 상담을 함께 안내. 반드시 아래 JSON으로만 답하세요(다른 말 금지): {"summary":"한 문장 결론","sections":[{"title":"소제목","body":"설명"}]} (sections 최대 3개)';
+async function llmAsk(q) {
+  const body = { model: "claude-haiku-4-5", max_tokens: 1500,
+    system: [{ type: "text", text: LLM_SYS, cache_control: { type: "ephemeral" } }],
+    messages: LLM_HIST.concat([{ role: "user", content: q }]) };
+  if (REALTIME.test(q)) body.tools = [{ type: "web_search_20250305", name: "web_search", max_uses: 3 }];
+  const res = await fetch("https://api.anthropic.com/v1/messages", { method: "POST",
+    headers: { "content-type": "application/json", "x-api-key": LLM_KEY, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+    body: JSON.stringify(body) });
+  if (!res.ok) throw new Error("HTTP " + res.status + (res.status === 401 ? " (키 오류·만료)" : res.status === 429 ? " (한도 초과)" : ""));
+  const data = await res.json();
+  const text = (data.content || []).filter((b) => b.type === "text").map((b) => b.text).join("");
+  LLM_HIST.push({ role: "user", content: q }, { role: "assistant", content: text.slice(0, 600) });
+  if (LLM_HIST.length > 12) LLM_HIST = LLM_HIST.slice(-12);
+  const c = text.replace(/\u0060\u0060\u0060json\s*/gi, "").replace(/\u0060\u0060\u0060/g, "");
+  const s = c.indexOf("{"), e2 = c.lastIndexOf("}");
+  let j = {}; if (s >= 0 && e2 > s) { try { j = JSON.parse(c.slice(s, e2 + 1)); } catch (err) {} }
+  return { summary: (typeof j.summary === "string" && j.summary) || (text.split("\n")[0] || "도와드릴게요.").slice(0, 140),
+    sections: Array.isArray(j.sections) ? j.sections.filter((x) => x && x.title && x.body).slice(0, 3) : [] };
+}
+function renderNote() {
+  const n = document.getElementById("demoNote"); if (!n) return;
+  n.innerHTML = LLM_KEY
+    ? '✅ 실제 AI 대화 연결됨 · 실시간 검색 가능 <button id="aiKeyBtn" class="note-btn off">연결 해제</button>'
+    : '지금은 예시 답변이에요 <button id="aiKeyBtn" class="note-btn">🔑 실제 AI 연결하기</button>';
+  n.classList.toggle("on", !!LLM_KEY);
+  document.getElementById("aiKeyBtn").onclick = () => {
+    if (LLM_KEY) { LLM_KEY = ""; __store.removeItem("demo_llm_key"); }
+    else {
+      const k = prompt("Anthropic API 키(sk-ant-...)를 붙여넣어 주세요.\n키는 이 기기 브라우저에만 저장되고 외부로 공개되지 않아요.");
+      if (k && k.trim().startsWith("sk-ant-")) { LLM_KEY = k.trim(); __store.setItem("demo_llm_key", LLM_KEY); }
+      else if (k) alert("sk-ant- 로 시작하는 키가 아니에요. console.anthropic.com에서 발급한 키를 넣어주세요.");
+    }
+    renderNote();
+  };
+}
 const _rid = (p) => p + "_" + Math.random().toString(36).slice(2, 10);
 const _now = () => new Date().toISOString();
 const M = {
@@ -427,8 +471,13 @@ async function mockApi(path, opts = {}) {
       const done = M.mission.active.turns >= def.turnsRequired;
       mission = { missionId: def.missionId, title: def.title, sponsor: def.sponsor, turns: M.mission.active.turns, turnsRequired: def.turnsRequired, completed: done, reward: def.reward };
       if (done) { M.mission.completed.add(def.missionId); M.mission.active = null; _addReward("대화 미션 보상", "sponsor_chat", def.reward, true); } }
-    const a = critical ? { summary: safety.title, sections: [{ title: "지금 바로", body: safety.body }] } : ANSWERS[cat];
-    return { answerSnapshotId: _rid("ans"), answer: { summary: a.summary, sections: a.sections, uncertainty: { message: "데모 예시 답변이에요. 실서비스에선 실제 AI가 검색까지 해서 답해드려요." } },
+    let a = critical ? { summary: safety.title, sections: [{ title: "지금 바로", body: safety.body }] } : ANSWERS[cat];
+    let unc = "지금은 예시 답변이에요. 위의 ‘실제 AI 연결하기’를 누르면 진짜 대화가 돼요.";
+    if (LLM_KEY && !critical) {
+      try { a = await llmAsk(q); unc = "실제 AI 답변 · 가격·조건은 시점에 따라 달라질 수 있어요."; }
+      catch (err) { unc = "AI 연결 실패(" + err.message + ") — 예시로 답했어요. 상단 버튼으로 키를 다시 확인해 주세요."; }
+    }
+    return { answerSnapshotId: _rid("ans"), answer: { summary: a.summary, sections: a.sections, uncertainty: { message: unc } },
       commercial: benefits[0] ?? null, matched: { benefits, missions: [] }, needLevel: need, rewardNudge: !safety && /걷|산책|운동|건강|용돈|절약/.test(q) && need !== "ready" ? "walk" : null,
       safetyNotice: safety, followUps: critical ? [] : _followUps(cat), gated: false, chat: _chatStatus(), mission, streak: { days: 1, bonus: null } };
   }
@@ -1153,5 +1202,6 @@ ensureSession().then(render).catch(() => render());
 // 첫 실행 온보딩(1회)
 if (!__store.getItem("hyeaek_onboarded")) showOnboarding();
 
+renderNote();
 </script>
 </body></html>
