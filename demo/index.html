@@ -1,0 +1,1157 @@
+<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width'></head><body><title>혜택AI 데모</title>
+<style>
+/* 혜택AI 웹 — 토스 디자인 시스템(TDS) 문법, 브랜드 컬러만 그린.
+   그레이 배경 + 보더 없는 흰 카드 + 8pt 간격 그리드 + 잉크/세컨더리 타이포 */
+:root {
+  --bg:#F2F4F6; --card:#ffffff; --inset:#F6F8FA; --ink:#191F28; --muted:#6B7684; --line:#EEF1F4;
+  --brand:#059669; --brand-dark:#047857; --brand-soft:#E8F5EF;
+  --accent:#B45309; --accent-soft:#FFF7EB; --accent-line:#F3E4C8; --ad:#8B95A1;
+  --available:#047857; --pending:#B45309; --reversed:#D22030;
+  --arrow:#B0B8C1;
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html { font-size: 18px; }
+body {
+  margin: 0; font-family: "Pretendard Variable", Pretendard, -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  background: var(--bg); color: var(--ink); line-height: 1.55; padding-bottom: 88px;
+  /* 한국어 어절 단위 줄바꿈 — 단어 중간에서 꺾이지 않아 시니어 가독성이 크게 좋아진다 */
+  word-break: keep-all; overflow-wrap: break-word;
+}
+.topbar {
+  position: sticky; top: 0; z-index: 5; display: flex; align-items: center; justify-content: space-between;
+  padding: 15px 24px; background: var(--bg);
+}
+.brand { font-size: 1.35rem; font-weight: 900; }
+.brand span { color: var(--brand); }
+.wallet-mini { font-size: .95rem; color: var(--muted); font-weight: 700; }
+.wallet-mini b { color: var(--brand); font-size: 1.15rem; }
+
+main { padding: 20px 24px; max-width: 640px; margin: 0 auto; }
+h2.title { font-size: 1.55rem; font-weight: 900; margin: 4px 0 16px; }
+.sub { color: var(--muted); margin: -8px 0 16px; }
+
+/* 토스식 카드: 보더 없이 흰 서피스만으로 구분(배경이 그레이라 충분히 분리됨) */
+.card { background: var(--card); border: 0; border-radius: 20px; padding: 20px; margin-bottom: 12px; }
+.card h3 { margin: 0 0 8px; font-size: 1.15rem; }
+.row { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; align-items: center; }
+.row .k { color: var(--muted); }
+.row .v { font-weight: 800; text-align: right; }
+.big-amount { font-size: 2rem; font-weight: 900; }
+
+button, .btn {
+  font: inherit; cursor: pointer; border: 0; border-radius: 16px; padding: 15px 18px; min-height: 56px; font-weight: 700;
+}
+.btn-primary { background: var(--brand); color: #fff; width: 100%; font-size: 1.15rem; }
+.btn-primary:active { background: var(--brand-dark); }
+.btn-ghost { background: var(--brand-soft); color: var(--brand); }
+.btn-line { background: #fff; border: 1.5px solid var(--brand); color: var(--brand); }
+.btn:disabled, button:disabled { opacity: .5; }
+
+/* 오퍼 카드 */
+.offer { background: var(--accent-soft); border: 0; }
+.offer .toprow { display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+.ad-label { background: var(--ad); color: #fff; font-size: .78rem; font-weight: 800; padding: 3px 9px; border-radius: 999px; }
+.advertiser { font-weight: 800; }
+.cat-tag { margin-left:auto; color: var(--muted); font-weight: 700; font-size: .85rem; }
+.offer .inset { background: var(--card); border-radius: 14px; padding: 14px; margin-top: 6px; }
+.offer .inset .divider { height:1px; background:var(--line); margin:4px 0; }
+.chips { display:flex; flex-wrap:wrap; gap:7px; margin-top:12px; }
+.chip { border-radius:999px; padding:6px 11px; font-weight:800; font-size:.82rem; }
+.chip.ok { background: var(--brand-soft); color: var(--brand); }
+.chip.warn { background: #f9ede0; color: var(--accent); }
+.accent { color: var(--accent); }
+
+/* 상태 pill */
+.pill { display:inline-flex; align-items:center; gap:6px; font-size:.85rem; font-weight:800; padding:5px 11px; border-radius:999px; }
+.pill.pending { background:#faf1e6; color:var(--pending); }
+.pill.available { background:var(--brand-soft); color:var(--available); }
+.pill.reversed { background:#fbe9e6; color:var(--reversed); }
+.pill.paid { background:var(--inset); color:var(--muted); }
+
+/* 하단 탭 */
+.tabbar {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 6; display: grid; grid-template-columns: repeat(6,1fr);
+  background: var(--card); border-top: 1px solid var(--line);
+}
+.tabbar button {
+  background: none; border-radius: 0; min-height: 66px; color: var(--muted); font-size: .8rem; font-weight: 700;
+  display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 2px;
+}
+.tabbar button .ic { display:flex; } .tabbar button .ic svg { width:23px; height:23px; }
+.tabbar button.active { color: var(--brand); }
+
+/* AI 홈 */
+.hello { color: var(--muted); font-weight: 800; font-size: 1.05rem; }
+.h-big { font-size: 2.1rem; font-weight: 900; line-height: 1.2; margin: 2px 0 0; }
+.wallet-box { background: var(--brand-soft); border-radius: 16px; padding: 12px 16px; text-align:center; }
+.wallet-box .l { color: var(--brand-dark); font-size:.8rem; font-weight:800; }
+.wallet-box .v { color: var(--brand); font-size:1.25rem; font-weight:900; }
+.voice-btn {
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px;
+  width:176px; height:176px; border-radius:50%; background:var(--brand); color:#fff; margin:8px auto 0;
+  box-shadow: 0 10px 26px rgba(14,122,95,.35); border:0; cursor:pointer;
+}
+.voice-btn .mic { font-size:2.6rem; } .voice-btn .t { font-size:1.2rem; font-weight:800; }
+.voice-hint { text-align:center; color:var(--muted); margin:14px 0 0; }
+.ask { display: flex; gap: 10px; margin-top: 16px; align-items:center; background:var(--card); border-radius:18px; padding:6px 8px 6px 16px; box-shadow:0 2px 10px rgba(25,31,40,.06); }
+.ask input { flex: 1; min-width: 0; font: inherit; padding: 12px 0; border: 0; outline:none; background:transparent; }
+.ask button { white-space: nowrap; flex-shrink: 0; }
+/* 토스식 리스트 행: 원형 아이콘 + 라벨 + 우측 화살표 */
+.quick { display:flex; align-items:center; gap:14px; background:var(--card); border:0; border-radius:16px; padding:14px 16px; margin:8px 0 0; width:100%; text-align:left; cursor:pointer; }
+.quick:active { background:var(--inset); }
+.quick .e { width:40px; height:40px; border-radius:50%; background:var(--brand-soft); color:var(--brand-dark); display:flex; align-items:center; justify-content:center; flex-shrink:0; } .quick .e svg { width:20px; height:20px; }
+.quick .t { flex:1; font-size:1.02rem; font-weight:700; color:var(--ink); }
+.quick::after { content:"›"; color:var(--arrow); font-size:1.4rem; font-weight:300; }
+.quick-head { color:var(--muted); font-weight:800; margin:24px 0 4px; font-size:.9rem; }
+
+/* 채팅 레이아웃 — 메시지는 위에서 아래로 쌓이고, 입력창은 하단(탭바 위)에 고정 */
+.ai-chat { display:flex; flex-direction:column; min-height:calc(100vh - 66px - 66px); }
+#thread { display:flex; flex-direction:column; padding-bottom:8px; }
+.msg-row { margin-top:14px; }
+.msg-row:first-child { margin-top:4px; }
+/* 입력 도크 — 미션 진행 핀 + 입력창을 함께 하단 고정(핀이 스크롤에 묻히지 않게) */
+.dock { position:sticky; bottom:74px; margin-top:auto; }
+.chat-input { box-shadow:0 -8px 16px var(--bg); }
+
+/* 대화 */
+.user-bubble { align-self:flex-end; background:var(--brand); color:#fff; border-radius:20px; border-bottom-right-radius:6px; padding:13px 16px; font-weight:700; font-size:1.05rem; max-width:88%; margin:0 0 12px auto; width:fit-content; }
+.answer .ai-badge-row { display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+.ai-badge { background:var(--brand-soft); color:var(--brand); font-weight:900; font-size:.78rem; padding:3px 8px; border-radius:8px; }
+.answer .summary { font-size: 1.25rem; font-weight: 900; margin-bottom: 8px; }
+.answer .section { margin: 10px 0; }
+.answer .section .h { font-weight: 800; margin-bottom: 4px; }
+.uncertain { background:var(--accent-soft); border:0; border-radius:12px; padding:12px; color:var(--accent); margin-top:12px; }
+
+/* 세그먼트 */
+.segbar { display:flex; background:var(--inset); border-radius:14px; padding:4px; margin-bottom:16px; }
+.seg { flex:1; padding:11px; border-radius:11px; text-align:center; font-weight:800; color:var(--muted); background:none; min-height:auto; }
+.seg.active { background:var(--card); color:var(--brand); box-shadow:0 1px 3px rgba(0,0,0,.06); }
+.notice { background:var(--accent-soft); border:0; border-radius:12px; padding:13px; color:var(--accent); font-size:.9rem; margin-bottom:14px; }
+
+/* 걷기 */
+.steps-big { font-size: 3.2rem; font-weight: 900; text-align: center; color: var(--brand); }
+.progress { height: 14px; background:var(--inset); border-radius:999px; overflow:hidden; margin:10px 0; }
+.progress > i { display:block; height:100%; background:var(--brand); border-radius:999px; }
+.milestones { display:flex; flex-wrap:wrap; gap:8px; }
+.ms { width:46px; height:46px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:.8rem; border:0; min-height:auto; }
+.ms.locked { background:var(--inset); color:#b6b1a4; }
+.ms.claimable { background:var(--accent-soft); color:var(--accent); border:0; }
+.ms.done { background:var(--brand-soft); color:var(--brand); }
+
+.disclose { font-size:.85rem; color:var(--muted); background:var(--inset); border-radius:12px; padding:11px 13px; margin-top:10px; }
+.toast { position: fixed; left: 50%; bottom: 100px; transform: translateX(-50%); background: var(--ink); color: #fff; padding: 12px 18px; border-radius: 12px; font-weight: 700; opacity: 0; transition: opacity .2s; z-index: 20; max-width: 90%; }
+.toast.show { opacity: 1; }
+.muted { color: var(--muted); } .center { text-align:center; } .mt { margin-top: 14px; }
+
+/* 렌탈 상담 폼 모달 */
+.modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 40; display: flex; align-items: flex-end; justify-content: center; }
+.lead-modal { background: var(--bg); border-top-left-radius: 24px; border-top-right-radius: 24px; width: 100%; max-width: 640px; max-height: 92vh; overflow-y: auto; padding: 22px; }
+.lead-modal h3 { font-size: 1.35rem; }
+.lead-modal .fl { display:block; color: var(--muted); font-weight: 700; font-size: .9rem; margin: 12px 0 6px; }
+.lead-modal input[type=text], .lead-modal input:not([type]) { width: 100%; font: inherit; padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); color: var(--ink); }
+.lead-disclose { background: var(--accent-soft); border: 0; border-radius: 14px; padding: 14px; margin: 14px 0; color: var(--accent); font-size: .88rem; line-height: 1.7; }
+.lead-check { display: flex; align-items: center; gap: 10px; font-weight: 700; margin-bottom: 16px; }
+.lead-check input { width: 22px; height: 22px; }
+.lead-modal .btn-primary { margin-bottom: 8px; }
+
+/* ── 모던 UI/UX 리프레시 ─────────────────────────────────────────── */
+/* 입력창 전송 버튼 — 원형 화살표 */
+.send-btn { flex-shrink:0; width:46px; height:46px; border:0; border-radius:50%; background:var(--brand); color:#fff; font-size:1.4rem; font-weight:900; line-height:1; cursor:pointer; transition:transform .12s, background .12s; }
+.send-btn:active { transform:scale(.92); background:var(--brand-dark); }
+
+/* 큰 대화 시작 버튼(음성/입력 유도) */
+.talk-btn { display:flex; align-items:center; gap:14px; width:100%; text-align:left; border:0; cursor:pointer;
+  background:var(--brand); color:#fff; border-radius:20px; padding:16px; box-shadow:0 10px 26px rgba(14,122,95,.28); }
+.talk-btn:active { transform:translateY(1px); }
+.talk-btn .mic { width:46px; height:46px; border-radius:50%; background:rgba(255,255,255,.18); display:flex; align-items:center; justify-content:center; font-size:1.4rem; flex-shrink:0; }
+.talk-btn .tx { display:flex; flex-direction:column; flex:1; }
+.talk-btn .tx b { font-size:1.15rem; font-weight:900; }
+.talk-btn .tx .sub { font-size:.82rem; color:rgba(255,255,255,.85); margin-top:2px; }
+.talk-btn .arw { font-size:1.6rem; font-weight:300; }
+
+/* 타이핑 인디케이터(… 점 애니메이션) */
+.card.typing { display:flex; gap:6px; align-items:center; }
+.card.typing .dot { width:8px; height:8px; border-radius:50%; background:var(--brand); animation:typing 1.1s infinite ease-in-out; }
+.card.typing .dot:nth-child(2){ animation-delay:.16s; } .card.typing .dot:nth-child(3){ animation-delay:.32s; }
+@keyframes typing { 0%,80%,100%{ transform:translateY(0); opacity:.3 } 40%{ transform:translateY(-5px); opacity:1 } }
+
+/* exploring — 부드러운 확장형 제안 */
+.soft-sug { display:flex; align-items:center; gap:12px; width:100%; text-align:left; cursor:pointer;
+  background:var(--brand-soft); border:0; border-radius:18px; padding:14px 16px; margin-top:10px; }
+.soft-sug:active { transform:translateY(1px); }
+.soft-sug .e { font-size:1.3rem; }
+.soft-sug .tx { display:flex; flex-direction:column; flex:1; }
+.soft-sug .tx b { color:var(--brand-dark); font-size:1rem; }
+.soft-sug .tx .sub { color:var(--brand); font-size:.85rem; font-weight:600; margin-top:2px; }
+.soft-sug .tg { background:var(--brand); color:#fff; border-radius:12px; padding:7px 13px; font-weight:800; font-size:.85rem; }
+.soft-body { animation:fadein .22s ease; }
+@keyframes fadein { from{ opacity:0; transform:translateY(-4px) } to{ opacity:1; transform:none } }
+
+/* 리워드 넛지(걷기/미션 바로가기) */
+.nudge-chip { display:flex; align-items:center; gap:10px; width:100%; text-align:left; cursor:pointer;
+  background:var(--accent-soft); border:0; border-radius:16px; padding:13px 16px; margin-top:10px; }
+.nudge-chip:active { transform:translateY(1px); }
+.nudge-chip .e { font-size:1.2rem; }
+.nudge-chip .tx { flex:1; color:var(--accent); font-weight:800; font-size:.95rem; }
+.nudge-chip .go { color:var(--accent); font-weight:800; font-size:.85rem; }
+
+/* 토스쇼핑식 상품 행 */
+.p-row { display:flex; align-items:center; gap:14px; width:100%; text-align:left; cursor:pointer;
+  background:var(--card); border:0; border-radius:16px; padding:14px 16px; margin-bottom:8px; min-height:auto; }
+.p-row:active { background:var(--inset); }
+.p-thumb { width:56px; height:56px; border-radius:14px; background:var(--inset); display:flex; align-items:center;
+  justify-content:center; font-size:1.7rem; flex-shrink:0; }
+.p-body { flex:1; min-width:0; display:flex; flex-direction:column; gap:4px; }
+.p-name { font-weight:700; color:var(--ink); font-size:.97rem; line-height:1.35; }
+.p-price { font-weight:900; color:var(--ink); font-size:1.08rem; }
+.p-meta { color:var(--muted); font-size:.8rem; display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+.p-cash { color:var(--brand); font-weight:800; font-size:.78rem; background:var(--brand-soft); border-radius:8px; padding:2px 7px; }
+.p-arrow { color:var(--arrow); font-size:1.4rem; font-weight:300; flex-shrink:0; }
+
+/* 스폰서 대화 미션 — 대화하면 돈 버는 루프 */
+.m-head-row { display:flex; align-items:center; justify-content:space-between; margin:26px 0 10px; }
+.m-head { font-weight:900; color:var(--ink); font-size:1rem; }
+.streak-chip { color:var(--accent); font-weight:800; font-size:.78rem; background:var(--accent-soft); border-radius:999px; padding:4px 10px; }
+.m-card { display:flex; align-items:center; gap:12px; width:100%; text-align:left; cursor:pointer;
+  background:var(--card); border:0; border-radius:16px; padding:14px 16px; margin-bottom:8px; }
+.m-card:active { background:var(--inset); }
+.m-icon { width:40px; height:40px; border-radius:50%; background:var(--brand-soft); color:var(--brand-dark); display:flex; align-items:center; justify-content:center; flex-shrink:0; } .m-icon svg { width:20px; height:20px; }
+.m-card:active { transform:translateY(1px); }
+.m-card.done { opacity:.55; cursor:default; }
+.m-body { flex:1; display:flex; flex-direction:column; gap:3px; }
+.m-title-row { display:flex; align-items:center; gap:7px; }
+.m-title { font-weight:800; color:var(--ink); font-size:.97rem; min-width:0; }
+.m-ad { background:var(--inset); color:var(--muted); font-weight:800; font-size:.62rem; padding:2px 6px; border-radius:6px; white-space:nowrap; flex-shrink:0; margin-right:6px; }
+.m-sub { color:var(--muted); font-size:.82rem; display:flex; align-items:center; flex-wrap:wrap; }
+.m-reward { background:var(--brand-soft); color:var(--brand); font-weight:900; font-size:.9rem; border-radius:12px; padding:8px 12px; white-space:nowrap; flex-shrink:0; }
+.m-card.done .m-reward { background:var(--inset); color:var(--muted); }
+.mission-bar { text-align:center; margin:0 4px 8px; padding:9px 14px; background:var(--brand); border-radius:999px;
+  color:#fff; font-weight:800; font-size:.84rem; box-shadow:0 4px 12px rgba(46,125,91,.3); }
+.mission-done { background:var(--brand-soft); border:0; border-radius:18px; padding:17px; margin-top:10px; text-align:center; }
+.mission-done .md-title { color:var(--brand-dark); font-weight:900; font-size:1.05rem; }
+.mission-done .md-sub { color:var(--brand); font-weight:700; font-size:.85rem; margin-top:4px; }
+.mission-done .md-btn { margin-top:12px; background:var(--brand); color:#fff; border:none; border-radius:12px;
+  padding:11px 18px; font-weight:900; font-size:.9rem; cursor:pointer; }
+
+/* 대화 연장 광고 게이트 */
+.card.gate { background:var(--accent-soft); border:0; text-align:center; }
+.card.gate .gate-title { color:var(--accent); font-weight:900; font-size:1.05rem; margin-bottom:6px; }
+.card.gate .gate-body { color:var(--accent); font-size:.9rem; line-height:1.5; margin-bottom:14px; }
+.card.gate .gate-btn { display:block; width:100%; background:var(--accent); color:#fff; border:none; border-radius:14px;
+  padding:14px; font-weight:900; font-size:1rem; cursor:pointer; }
+.card.gate .gate-btn:disabled { opacity:.6; cursor:default; }
+.card.gate .gate-alt { background:none; border:none; color:var(--accent); font-weight:700; font-size:.85rem; margin-top:12px; cursor:pointer; }
+
+/* none — 광고 미노출 안내(차분) */
+.ai-note { background:var(--inset); border-radius:13px; padding:13px; margin-top:10px; color:var(--muted); font-size:.85rem; line-height:1.5; }
+.soft-sug .soft-h { display:flex; align-items:center; gap:7px; }
+.soft-sug .soft-ad { background:var(--ad); color:#fff; font-weight:800; font-size:.62rem; padding:2px 6px; border-radius:6px; white-space:nowrap; flex-shrink:0; }
+
+/* 설정 화면 */
+.set-sec { color: var(--muted); font-weight: 800; font-size: .9rem; margin: 22px 0 8px; }
+.set-card { padding: 0 16px; }
+.set-consent { display: flex; align-items: center; gap: 12px; padding: 15px 0; }
+.set-consent .tx { flex: 1; }
+.set-consent .ct { font-weight: 800; font-size: 1rem; margin-bottom: 3px; }
+.set-consent .cd { color: var(--muted); font-size: .82rem; line-height: 1.5; }
+.rdiv { border-bottom: 1px solid var(--line); }
+.toggle { flex-shrink: 0; width: 52px; height: 31px; border-radius: 999px; background: #cfcabd; padding: 0; min-height: auto; position: relative; transition: background .15s; }
+.toggle.on { background: var(--brand); }
+.toggle .knob { position: absolute; top: 3px; left: 3px; width: 25px; height: 25px; border-radius: 50%; background: #fff; transition: left .15s; box-shadow: 0 1px 3px rgba(0,0,0,.25); }
+.toggle.on .knob { left: 24px; }
+.set-link { display: flex; align-items: center; justify-content: space-between; width: 100%; text-align: left; background: none; padding: 17px 0; min-height: auto; font-size: 1rem; font-weight: 700; color: var(--ink); }
+.set-link.danger { color: var(--reversed); }
+.set-link .chev { color: var(--muted); font-weight: 300; font-size: 1.3rem; }
+.app-info { text-align: center; color: var(--muted); font-size: .85rem; margin-top: 28px; }
+.retry-btn { background: var(--brand-soft); color: var(--brand); border-radius: 12px; padding: 10px 16px; min-height: auto; font-weight: 800; font-size: .95rem; }
+
+/* 온보딩 오버레이 */
+.onb { position: fixed; inset: 0; z-index: 60; background: var(--bg); display: flex; flex-direction: column; padding: 56px 26px 36px; }
+.onb-skip { position: absolute; top: 48px; right: 20px; background: none; color: var(--muted); font-weight: 700; font-size: .95rem; min-height: auto; padding: 6px; width: auto; }
+.onb-body { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+.onb-emoji { width: 132px; height: 132px; border-radius: 50%; background: var(--brand-soft); display: flex; align-items: center; justify-content: center; font-size: 4rem; margin-bottom: 28px; }
+.onb-title { font-size: 1.8rem; font-weight: 900; line-height: 1.32; color: var(--ink); }
+.onb-desc { font-size: 1.05rem; line-height: 1.6; color: var(--ink); margin-top: 16px; max-width: 340px; }
+.onb-point { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px 16px; margin-top: 20px; color: var(--brand); font-weight: 800; font-size: .95rem; }
+.onb-dots { display: flex; justify-content: center; gap: 8px; margin-bottom: 18px; }
+.onb-dots span { width: 9px; height: 9px; border-radius: 5px; background: var(--line); transition: width .2s; }
+.onb-dots span.on { background: var(--brand); width: 24px; }
+.onb-cta { background: var(--brand); color: #fff; border-radius: 18px; padding: 17px; width: 100%; font-size: 1.2rem; font-weight: 900; }
+
+/* FAQ */
+.faq-q { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; text-align: left; background: none; padding: 16px 0; min-height: auto; font-size: .98rem; font-weight: 700; color: var(--ink); }
+.faq-a { color: var(--muted); font-size: .9rem; line-height: 1.6; padding: 0 8px 16px 0; }
+.set-replay { background: var(--brand-soft); color: var(--brand); border-radius: 12px; padding: 11px 16px; min-height: auto; font-weight: 800; font-size: .95rem; margin-top: 10px; width: auto; }
+
+/* 안전 안내 카드 */
+.safety { border-radius: 16px; border: 1px solid; padding: 16px; margin-top: 10px; }
+.safety.critical { background: #fdecea; border-color: #f3c4bd; }
+.safety.warn { background: #fbf6ea; border-color: #eedec0; }
+.safety-title { font-weight: 900; font-size: 1.02rem; line-height: 1.4; color: var(--accent); margin-bottom: 6px; }
+.safety.critical .safety-title { color: #a01818; }
+.safety-body { font-size: .95rem; line-height: 1.6; color: var(--ink); }
+.safety-res { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.res-btn { display: flex; align-items: center; gap: 8px; background: #fff; border: 0; border-radius: 12px; padding: 10px 13px; text-decoration: none; }
+.res-btn .rl { color: var(--muted); font-weight: 700; font-size: .82rem; }
+.res-btn .rv { color: #a01818; font-weight: 900; font-size: .95rem; }
+
+/* 후속 질문 유도 */
+.follow-wrap { margin-top: 10px; }
+.follow-head { color: var(--muted); font-weight: 800; font-size: .85rem; margin-bottom: 8px; }
+.follow-chip { display: flex; align-items: center; justify-content: space-between; width: 100%; text-align: left; background: var(--card); border: 0; border-radius: 14px; padding: 13px 15px; margin-bottom: 8px; font-weight: 700; color: var(--brand-dark); font-size: .98rem; }
+.follow-chip .fa { color: var(--muted); font-weight: 300; font-size: 1.2rem; }
+.follow-chip:active { background: var(--brand-soft); }
+
+/* 오늘의 이야기(선제 대화) */
+.pro-card { background: var(--brand); border-radius: 20px; padding: 18px; margin-bottom: 20px; box-shadow: 0 10px 26px rgba(14,122,95,.28); }
+.pro-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.pro-title { color: rgba(255,255,255,.9); font-weight: 800; font-size: .82rem; }
+.pro-w { color: #fff; font-weight: 800; font-size: .82rem; }
+.pro-msg { color: #fff; font-size: 1.05rem; font-weight: 700; line-height: 1.5; margin-bottom: 14px; }
+.pro-topic { display: block; width: 100%; text-align: left; background: rgba(255,255,255,.16); color: #fff; border-radius: 14px; padding: 13px 14px; font-weight: 800; font-size: 1rem; min-height: auto; }
+.pro-action { margin-top: 10px; background: #fff; color: var(--brand-dark); border-radius: 12px; padding: 10px 15px; font-weight: 900; font-size: .9rem; min-height: auto; width: auto; }
+.uncertain-note { color: var(--muted); font-size: .8rem; line-height: 1.5; margin-top: 12px; }
+
+/* 데모 안내 바 + 아티팩트 표시 보정 */
+:root { color-scheme: light; }
+.demo-note { text-align:center; font-size:.78rem; font-weight:700; color:var(--muted); background:var(--inset); padding:7px 12px; }
+</style>
+<header class="topbar">
+  <div class="brand">혜택<span>AI</span></div>
+  <div class="wallet-mini" id="walletMini">사용 가능 <b>0</b>원</div>
+</header>
+<div class="demo-note">미리보기 데모 · 예시 답변으로 동작해요 (실서비스는 실제 AI + 실시간 검색)</div>
+<main id="view"></main>
+<nav class="tabbar" id="tabbar">
+    <button data-tab="ai" class="active"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg></span>AI 도움</button>
+    <button data-tab="shop"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg></span>혜택</button>
+    <button data-tab="mission"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg></span>미션</button>
+    <button data-tab="walk"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="9" cy="6.5" rx="2.6" ry="4"/><ellipse cx="15" cy="15.5" rx="2.6" ry="4"/><line x1="7.5" y1="13" x2="10.5" y2="13"/><line x1="13.5" y1="22" x2="16.5" y2="22"/></svg></span>걷기</button>
+    <button data-tab="reward"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="15" rx="2.5"/><path d="M16 12.5h4"/><path d="M2 9.5h20"/></svg></span>내 보상</button>
+    <button data-tab="settings"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>설정</button>
+  </nav>
+<script>
+
+// ---- 내장 데모 목업(예시 답변) — 실서비스는 실제 Claude + 웹검색으로 동작 ----
+const __store = (() => { try { localStorage.setItem("_t","1"); localStorage.removeItem("_t"); return localStorage; } catch (e) { const m = {}; return { getItem:k=>m[k]??null, setItem:(k,v)=>{m[k]=String(v)}, removeItem:k=>{delete m[k]} }; } })();
+const _rid = (p) => p + "_" + Math.random().toString(36).slice(2, 10);
+const _now = () => new Date().toISOString();
+const M = {
+  wallet: { available: 0, pending: 0, used: 0 },
+  rewards: [],
+  steps: 0, claimed: new Set(),
+  chat: { used: 0, free: 5, adUnlocks: 0, adReward: 20, perUnlock: 5 },
+  mission: { active: null, completed: new Set() },
+  region: null,
+  consents: { service: 1, third_party: 0, personalized_ads: 0, marketing: 0 },
+};
+const _mk = (o) => ({ offerId: _rid("off"), offerSnapshotId: _rid("ofs"), recommendationReason: "검수된 제휴", expectedReward: 0, approvalWindow: "구매 확정 후 7일", cancelTerms: "반품 시 적립 취소", autoRenewal: false, dataSharing: "없음", category: "shopping", isRental: false, monthlyFee: null, contractMonths: null, mandatoryMonths: null, ...o });
+const OFFERS = {
+  shopping: [
+    _mk({ advertiserName: "○○여행", title: "부산 해운대 호텔 2박", totalCost: 180000, expectedReward: 4000, approvalWindow: "여행 종료 후 7~14일", cancelTerms: "체크인 3일 전까지 무료 취소", category: "travel" }),
+    _mk({ advertiserName: "◎◎항공", title: "제주 왕복 항공권 특가", totalCost: 98000, expectedReward: 2500, approvalWindow: "탑승 후 7~14일", category: "travel" }),
+    _mk({ advertiserName: "토스쇼핑", title: "홍삼스틱 30포", totalCost: 29900, expectedReward: 1490 }),
+    _mk({ advertiserName: "토스쇼핑", title: "무릎 보호대 (2개입)", totalCost: 19800, expectedReward: 990 }),
+    _mk({ advertiserName: "토스쇼핑", title: "초경량 워킹화", totalCost: 49000, expectedReward: 2450 }),
+    _mk({ advertiserName: "토스쇼핑", title: "목편한 메모리폼 베개", totalCost: 35900, expectedReward: 1790 }),
+  ],
+  mission: [
+    _mk({ advertiserName: "□□리서치", title: "생활습관 설문(약 3분)", totalCost: 0, expectedReward: 300, approvalWindow: "설문 완료 확인 후 1~2일", dataSharing: "설문 응답(비식별)", category: "survey" }),
+    _mk({ advertiserName: "☆☆앱", title: "가계부 앱 설치·실행", totalCost: 0, expectedReward: 500, approvalWindow: "설치 확인 후 1~2일", category: "survey" }),
+  ],
+  rental: [
+    _mk({ advertiserName: "○○웰스", title: "정수기 렌탈 (냉·온·정)", totalCost: 466200, expectedReward: 40000, approvalWindow: "설치 완료 후 30~45일", cancelTerms: "의무사용기간 내 해지 시 위약금", autoRenewal: true, dataSharing: "이름·연락처·설치주소(설치 상담용)", category: "rental", isRental: true, monthlyFee: 25900, contractMonths: 36, mandatoryMonths: 18 }),
+    _mk({ advertiserName: "△△매직", title: "비데 렌탈 (온수 세정)", totalCost: 190800, expectedReward: 25000, approvalWindow: "설치 완료 후 30일", cancelTerms: "의무사용기간 내 해지 시 위약금", autoRenewal: true, dataSharing: "이름·연락처·설치주소", category: "rental", isRental: true, monthlyFee: 10600, contractMonths: 36, mandatoryMonths: 12 }),
+  ],
+};
+const MISSIONS = [
+  { missionId: "cm_health", sponsor: "○○헬스케어", title: "건강 습관 이야기 나누기", opening: "요즘 나이에 맞는 건강 관리, 뭐부터 하면 좋을까요?", reward: 500, turnsRequired: 3 },
+  { missionId: "cm_travel", sponsor: "△△여행", title: "가을 나들이 계획 세우기", opening: "가을에 당일치기로 다녀올 만한 곳 추천해줘요", reward: 300, turnsRequired: 2 },
+  { missionId: "cm_saving", sponsor: "□□마트", title: "장보기 절약 요령 배우기", opening: "장볼 때 돈 아끼는 요령 좀 알려줘요", reward: 300, turnsRequired: 2 },
+];
+function _addReward(title, source, amount, available) {
+  M.rewards.unshift({ reward_transaction_id: _rid("rwd"), title, source, state: available ? "available" : "pending", state_label: available ? "사용 가능" : "확인 중", amount, created_at: _now(),
+    _tl: [{ reason: "유효 전환 수신·귀속", created_at: _now() }].concat(available ? [{ reason: "사용 가능", created_at: _now() }] : []) });
+  if (available) M.wallet.available += amount; else M.wallet.pending += amount;
+}
+function _chatStatus() { const allow = M.chat.free + M.chat.adUnlocks * M.chat.perUnlock; const rem = Math.max(0, allow - M.chat.used);
+  return { used: M.chat.used, allowance: allow, remaining: rem, locked: rem <= 0, adReward: M.chat.adReward, perUnlock: M.chat.perUnlock }; }
+function _cw() { const un = Math.min(Math.floor(M.steps / 1000), 20); const claimable = []; for (let i = 1; i <= un; i++) if (!M.claimed.has(i)) claimable.push(i);
+  return { steps: M.steps, dailyCap: 20000, stepPerMilestone: 1000, rewardPerMilestone: 20, unlockedMilestones: un, claimedMilestones: [...M.claimed].sort((a,b)=>a-b), claimable, earnedToday: M.claimed.size * 20 }; }
+function _cat(q) { const s = q.toLowerCase();
+  if (/렌탈|렌트|정수기|비데/.test(s)) return "rental";
+  if (/여행|나들이|부산|제주|숙박|호텔|기차|항공|단풍/.test(s)) return "travel";
+  if (/쇼핑|구매|가격|최저가|싸게|홍삼|보호대|워킹화|베개|장보|마트|절약/.test(s)) return "shopping";
+  return "life"; }
+function _safety(s) {
+  if (/원금\s*보장|고수익|수수료.*먼저|인증번호|검찰.*계좌|리딩방/.test(s)) return { level: "critical", title: "혹시 사기일 수 있어요. 잠시 멈추세요.", body: "‘원금 보장·고수익’, ‘수수료 먼저’, ‘인증번호 요구’는 대표적 사기 수법이에요. 절대 송금하지 말고 가족과 먼저 확인하세요.", resources: [{ label: "경찰(신고)", value: "112" }, { label: "보이스피싱·금융사기", value: "1332" }] };
+  if (/사기(인가|일까|같|당한|예요|인지)|사기\?/.test(s)) return { level: "warn", title: "의심스러우면 일단 멈추는 게 안전해요", body: "돈·개인정보를 요구하면 먼저 가족이나 1332(금융사기 상담)에 확인하세요." };
+  if (/아프|통증|병원|약|당뇨|혈압/.test(s)) return { level: "warn", title: "건강 문제는 전문의 상담이 가장 안전해요", body: "일반 정보만 드릴 수 있어요. 진단·처방은 꼭 의사·약사와 상의하세요." };
+  return null; }
+const ANSWERS = {
+  rental: { summary: "렌탈은 월 요금만 보지 말고 총비용(월×약정)과 위약금을 꼭 함께 비교하세요.", sections: [ { title: "먼저 확인할 것", body: "의무 사용기간과 중도해지 위약금, 자동결제 여부가 핵심이에요." }, { title: "이렇게 하면 좋아요", body: "총비용 기준으로 2~3곳을 비교하고, 아래 검수된 제휴 조건도 참고하세요." } ] },
+  travel: { summary: "평일·비수기를 노리면 같은 곳도 훨씬 저렴하게 다녀올 수 있어요.", sections: [ { title: "아끼는 요령", body: "출발 2~3주 전 예약, 평일 출발이 가장 쌉니다. 숙소는 환불 가능 요금으로 잡으세요." }, { title: "추천 코스", body: "당일치기는 근교 수목원·온천이 부담 없어요. 아래 제휴 특가도 확인해 보세요." } ] },
+  shopping: { summary: "표시 가격보다 배송비·적립까지 합친 실제 부담으로 비교하는 게 이득이에요.", sections: [ { title: "싸게 사는 요령", body: "같은 상품도 판매처별 가격 차가 커요. 앱 내 제휴로 사면 포인트도 적립됩니다." } ] },
+  life: { summary: "말씀 잘 들었어요. 함께 차근차근 정리해 볼게요.", sections: [ { title: "이렇게 해보세요", body: "구체적인 상황(언제·어디서·얼마나)을 알려주시면 더 정확히 도와드릴 수 있어요." } ] },
+};
+function _followUps(cat) { return cat === "rental" ? ["중도 해지하면 위약금이 있나요?", "의무 사용기간이 뭔가요?"] : cat === "travel" ? ["당일치기 코스도 추천해줘요", "성수기 피하는 시기는 언제예요?"] : cat === "shopping" ? ["더 싼 곳도 있을까요?", "배송비까지 얼마예요?"] : ["좀 더 자세히 알려줄래요?", "제 상황에 맞게 정리해줄래요?"]; }
+async function mockApi(path, opts = {}) {
+  await new Promise((r) => setTimeout(r, path.includes("/messages") ? 700 : 120)); // 답변 생성 체감
+  const m = (opts.method || "GET").toUpperCase();
+  const body = opts.body ? JSON.parse(opts.body) : {};
+  const p = path.split("?")[0];
+  if (p === "/v1/auth/guest") return { token: "demo-token" };
+  if (p === "/v1/wallet") return { ...M.wallet };
+  if (p === "/v1/proactive") { const h = new Date().getHours(); const pod = h < 11 ? "아침" : h < 17 ? "낮" : "저녁";
+    return { greeting: "안녕하세요 👋", message: "좋은 " + pod + "이에요. 궁금한 것도, 오늘 있었던 일도 편하게 이야기해 주세요.",
+      topic: pod === "아침" ? "오늘 하루 어떻게 보내면 좋을지 같이 계획해볼까요?" : "요즘 궁금하거나 알아보고 싶은 게 있으세요?", action: null, weather: M.region ? { label: "맑음", tempC: 18 } : null }; }
+  if (p === "/v1/chat/missions") return { missions: MISSIONS.map((x) => ({ ...x, turns: M.mission.active?.missionId === x.missionId ? M.mission.active.turns : 0, state: M.mission.completed.has(x.missionId) ? "completed" : M.mission.active?.missionId === x.missionId ? "active" : "available" })), streak: { days: 1, bonus: null } };
+  if (/^\/v1\/chat\/missions\/.+\/start$/.test(p)) { const id = p.split("/")[4]; const def = MISSIONS.find((x) => x.missionId === id);
+    if (!def || M.mission.completed.has(id)) throw { code: "CONFLICT", title: "오늘 이미 완료한 미션이에요." };
+    M.mission.active = { missionId: id, turns: 0 }; return { missionId: id, opening: def.opening, turnsRequired: def.turnsRequired }; }
+  if (p === "/v1/chat/status") return _chatStatus();
+  if (p === "/v1/chat/ad") { M.chat.adUnlocks += 1; _addReward("대화 연장 광고 보상", "chat_ad", M.chat.adReward, true); return { status: _chatStatus(), rewarded: M.chat.adReward }; }
+  if (p === "/v1/conversations") return { conversation_id: _rid("cnv") };
+  if (/^\/v1\/conversations\/.+\/messages$/.test(p)) {
+    const q = body.text || ""; const safety = _safety(q); const critical = safety && safety.level === "critical";
+    if (!critical && _chatStatus().locked) return { answerSnapshotId: _rid("ans"), answer: null, gated: true, chat: _chatStatus(), matched: { benefits: [], missions: [] }, needLevel: "none", followUps: [] };
+    if (!critical) M.chat.used += 1;
+    const cat = _cat(q);
+    const commercial = !safety && (cat === "rental" || cat === "travel" || cat === "shopping");
+    const ready = /신청|추천|찾아|비교|어디서|사고\s*싶|할래|해줘|살까/.test(q);
+    const need = commercial ? (ready ? "ready" : "exploring") : "none";
+    const pool = cat === "rental" ? OFFERS.rental : OFFERS.shopping.filter((o) => (cat === "travel" ? o.category === "travel" : o.category === "shopping"));
+    const benefits = need === "none" ? [] : [{ ...pool[Math.floor(Math.random() * pool.length)], recommendationReason: "말씀하신 내용과 맞는 제휴예요. 확정 시 포인트가 적립됩니다." }];
+    let mission = null;
+    if (!critical && M.mission.active) { const def = MISSIONS.find((x) => x.missionId === M.mission.active.missionId); M.mission.active.turns += 1;
+      const done = M.mission.active.turns >= def.turnsRequired;
+      mission = { missionId: def.missionId, title: def.title, sponsor: def.sponsor, turns: M.mission.active.turns, turnsRequired: def.turnsRequired, completed: done, reward: def.reward };
+      if (done) { M.mission.completed.add(def.missionId); M.mission.active = null; _addReward("대화 미션 보상", "sponsor_chat", def.reward, true); } }
+    const a = critical ? { summary: safety.title, sections: [{ title: "지금 바로", body: safety.body }] } : ANSWERS[cat];
+    return { answerSnapshotId: _rid("ans"), answer: { summary: a.summary, sections: a.sections, uncertainty: { message: "데모 예시 답변이에요. 실서비스에선 실제 AI가 검색까지 해서 답해드려요." } },
+      commercial: benefits[0] ?? null, matched: { benefits, missions: [] }, needLevel: need, rewardNudge: !safety && /걷|산책|운동|건강|용돈|절약/.test(q) && need !== "ready" ? "walk" : null,
+      safetyNotice: safety, followUps: critical ? [] : _followUps(cat), gated: false, chat: _chatStatus(), mission, streak: { days: 1, bonus: null } };
+  }
+  if (p === "/v1/offers") { const t = (path.split("type=")[1] || "shopping"); return { offers: OFFERS[t] ?? [] }; }
+  if (/^\/v1\/offers\/.+\/clicks$/.test(p)) return { click_id: _rid("clk"), redirect_url: "https://example.com" };
+  if (/^\/v1\/offers\/.+\/lead$/.test(p)) { _addReward("렌탈 보상", "rental_cpa", 40000, false); return { lead_id: _rid("led"), click_id: _rid("clk"), advertiser_name: "○○웰스" }; }
+  if (p === "/v1/dev/simulate-conversion") { const src = body.source; const map = { shopping_cps: ["쇼핑 적립", 1490], offerwall_cpa: ["미션 보상", 300], rental_cpa: ["렌탈 보상", 40000] };
+    const [t, amt] = map[src] ?? ["보상", 500]; _addReward(t, src, amt, false); return { conversion_id: _rid("cnv"), status: "attributed" }; }
+  if (p === "/v1/rewards") return { rewards: M.rewards.map(({ _tl, ...r }) => r) };
+  if (/^\/v1\/rewards\/.+$/.test(p)) { const r = M.rewards.find((x) => x.reward_transaction_id === p.split("/")[3]);
+    return { title: r?.title ?? "보상", state_label: r?.state_label ?? "", amount: r?.amount ?? 0, timeline: r?._tl ?? [] }; }
+  if (p === "/v1/payouts") { const amt = body.amount ?? 3000; if (M.wallet.available < amt) throw { code: "REWARD_NOT_AVAILABLE", title: "사용 가능한 보상이 부족합니다." };
+    M.wallet.available -= amt; M.wallet.used += amt; return { status: "paid", status_label: "사용 완료", coupon_code: "CPN-" + Math.random().toString(36).slice(2, 8).toUpperCase() }; }
+  if (p === "/v1/cashwalk") return _cw();
+  if (p === "/v1/cashwalk/steps") { M.steps = Math.min(Math.max(body.steps ?? 0, M.steps), 21000); return _cw(); }
+  if (p === "/v1/cashwalk/claims") { const ms = body.milestone; if (!M.claimed.has(ms)) { M.claimed.add(ms); _addReward("걷기 광고 보상", "cashwalk_ad", 20, true); } return { rewardAmount: 20, status: _cw() }; }
+  if (p === "/v1/consents") return { consents: Object.entries(M.consents).map(([k, v]) => ({ purpose: k, granted: v, policy_version: "v1.0", updated_at: _now() })) };
+  if (/^\/v1\/consents\/.+$/.test(p)) { const k = p.split("/")[3]; if (m === "PUT") M.consents[k] = body.granted ? 1 : 0; return { purpose: k, granted: !!M.consents[k] }; }
+  if (p === "/v1/me") return { region: M.region, display_name: "게스트" };
+  if (p === "/v1/me/region") { M.region = body.region ?? null; return { region: M.region }; }
+  return {};
+}
+
+// 혜택AI 웹 클라이언트 — 따뜻한 친근 디자인 + 렌탈. 인증: 세션 토큰(Bearer).
+const won = (n) => (n ?? 0).toLocaleString("ko-KR") + "원";
+const el = (h) => { const t = document.createElement("template"); t.innerHTML = h.trim(); return t.content.firstElementChild; };
+const idem = () => (crypto.randomUUID ? crypto.randomUUID() : "k" + Date.now() + Math.random());
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+let TOKEN = __store.getItem("hyeaek_token") || "";
+function headers() { return { "Content-Type": "application/json", ...(TOKEN ? { Authorization: "Bearer " + TOKEN } : {}) }; }
+
+async function api(path, opts = {}) { return mockApi(path, opts); }
+
+// 세션 보장: 저장된 토큰이 없으면 게스트 로그인. 기기ID는 로컬에 유지해 같은 계정 재사용.
+async function ensureSession() {
+  if (TOKEN) return;
+  let deviceId = __store.getItem("hyeaek_device");
+  if (!deviceId) { deviceId = idem(); __store.setItem("hyeaek_device", deviceId); }
+  const r = await api("/v1/auth/guest", { method: "POST", body: JSON.stringify({ device_id: deviceId }) });
+  TOKEN = r.token; __store.setItem("hyeaek_token", TOKEN);
+}
+function toast(msg) {
+  let t = document.querySelector(".toast");
+  if (!t) { t = el(`<div class="toast"></div>`); document.body.appendChild(t); }
+  t.textContent = msg; t.classList.add("show");
+  clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("show"), 2200);
+}
+
+let conversationId = null;
+const state = { tab: "ai" };
+
+async function refreshWallet() {
+  try {
+    const w = await api("/v1/wallet");
+    document.querySelector("#walletMini").innerHTML = `사용 가능 <b>${w.available.toLocaleString("ko-KR")}</b>원`;
+    return w;
+  } catch { return { available: 0, pending: 0, used: 0 }; }
+}
+
+// 상단 지갑 탭 → 내 보상으로 이동(토스처럼 금액이 곧 버튼)
+document.querySelector("#walletMini").style.cursor = "pointer";
+document.querySelector("#walletMini").addEventListener("click", () => {
+  document.querySelector('#tabbar button[data-tab="reward"]')?.click();
+});
+
+document.querySelector("#tabbar").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-tab]"); if (!b) return;
+  document.querySelectorAll("#tabbar button").forEach((x) => x.classList.toggle("active", x === b));
+  state.tab = b.dataset.tab; render();
+});
+
+function render() {
+  refreshWallet();
+  ({ ai: renderAI, shop: renderShop, mission: renderMission, walk: renderWalk, reward: renderReward, settings: renderSettings })[state.tab]();
+}
+
+// ---------- AI 도움 ----------
+// 라인 아이콘(이모지 대신 일관된 스트로크 아이콘 — 원형 배경 위 브랜드색)
+const LIC = (paths) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`;
+const ICONS = {
+  money: LIC('<rect x="2" y="6" width="20" height="12" rx="2.5"/><circle cx="12" cy="12" r="2.6"/><line x1="5.5" y1="12" x2="5.5" y2="12.01"/><line x1="18.5" y1="12" x2="18.5" y2="12.01"/>'),
+  shield: LIC('<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>'),
+  plane: LIC('<line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>'),
+  heart: LIC('<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>'),
+  sun: LIC('<circle cx="12" cy="12" r="4"/><line x1="12" y1="1.5" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22.5"/><line x1="4.6" y1="4.6" x2="6.3" y2="6.3"/><line x1="17.7" y1="17.7" x2="19.4" y2="19.4"/><line x1="1.5" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22.5" y2="12"/><line x1="4.6" y1="19.4" x2="6.3" y2="17.7"/><line x1="17.7" y1="6.3" x2="19.4" y2="4.6"/>'),
+  cart: LIC('<circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>'),
+};
+const QUICK = [
+  { e: ICONS.money, t: "생활비 아끼는 법" },
+  { e: ICONS.shield, t: "이거 사기인가요?" },
+  { e: ICONS.plane, t: "여행 싸게 가기" },
+];
+async function renderAI() {
+  const w = await refreshWallet();
+  const v = document.querySelector("#view");
+  v.innerHTML = "";
+  v.appendChild(el(`
+    <div class="ai-chat">
+      <div id="emptyState">
+        <div id="proCard"></div>
+        <div id="hi"><div class="hello">안녕하세요 👋</div><div class="h-big">무엇이든 편하게<br>물어보세요</div></div>
+        <div class="quick-head">이렇게 물어보세요</div>
+        <div id="quicks"></div>
+        <div id="missionSec"></div>
+      </div>
+      <div id="thread"></div>
+      <div class="dock">
+        <div id="missionBar"></div>
+        <div class="ask chat-input">
+          <span class="muted">✎</span>
+          <input id="q" placeholder="메시지를 입력하세요" />
+          <button class="send-btn" id="send" aria-label="보내기">↑</button>
+        </div>
+      </div>
+    </div>`));
+  const quicks = v.querySelector("#quicks");
+  QUICK.forEach((q) => { const b = el(`<button class="quick"><span class="e">${q.e}</span><span class="t">${q.t}</span></button>`); b.addEventListener("click", () => ask(q.t)); quicks.appendChild(b); });
+  v.querySelector("#send").addEventListener("click", () => ask());
+  v.querySelector("#q").addEventListener("keydown", (e) => { if (e.key === "Enter") ask(); });
+  // 오늘의 이야기(선제 대화) — 앱이 먼저 안부를 건넨다.
+  api("/v1/proactive").then((p) => {
+    const box = v.querySelector("#proCard"); if (!box || !p) return;
+    const hi = v.querySelector("#hi"); if (hi) hi.style.display = "none"; // 인사말 중복 제거(카드가 대신)
+    box.appendChild(el(`<div class="pro-card">
+      <div class="pro-head"><span class="pro-title">오늘의 이야기</span>${p.weather ? `<span class="pro-w">☀️ ${esc(p.weather.label)} ${p.weather.tempC}°</span>` : ""}</div>
+      <div class="pro-msg">${esc(p.message)}</div>
+      <button class="pro-topic">💬 ${esc(p.topic)}</button>
+      ${p.action ? `<button class="pro-action">${esc(p.action.label)} ›</button>` : ""}
+    </div>`));
+    box.querySelector(".pro-topic").addEventListener("click", () => ask(p.topic));
+    const act = box.querySelector(".pro-action");
+    if (act) act.addEventListener("click", () => { const map = { "걷기": "walk", "내보상": "reward" }; document.querySelector(`#tabbar button[data-tab="${map[p.action.tab] || p.action.tab}"]`)?.click(); });
+  }).catch(() => {});
+  // 스폰서 대화 미션 — '대화하면 돈 버는' 루프('광고·제휴' 라벨로 투명하게).
+  api("/v1/chat/missions").then((r) => {
+    const sec = v.querySelector("#missionSec"); if (!sec || !r?.missions?.length) return;
+    const streakHtml = r.streak && r.streak.days >= 2 ? `<span class="streak-chip">🔥 ${r.streak.days}일 연속 대화</span>` : "";
+    sec.appendChild(el(`<div class="m-head-row"><span class="m-head">대화하고 포인트 받기</span>${streakHtml}</div>`));
+    r.missions.forEach((m) => {
+      const done = m.state === "completed";
+      const emoji = { cm_health: ICONS.heart, cm_travel: ICONS.sun, cm_saving: ICONS.cart }[m.missionId] || ICONS.money;
+      const card = el(`<button class="m-card${done ? " done" : ""}">
+        <span class="m-icon">${emoji}</span>
+        <span class="m-body">
+          <span class="m-title">${esc(m.title)}</span>
+          <span class="m-sub"><span class="m-ad">광고·제휴</span>${esc(m.sponsor)} · 대화 ${m.turnsRequired}번이면 완료</span>
+        </span>
+        <span class="m-reward">${done ? "완료 ✓" : `+${m.reward}P`}</span>
+      </button>`);
+      if (!done) card.addEventListener("click", async () => {
+        try {
+          const s = await api(`/v1/chat/missions/${m.missionId}/start`, { method: "POST", body: "{}" });
+          activeMission = { title: m.title, reward: m.reward, turns: 0, turnsRequired: s.turnsRequired };
+          renderMissionBar();
+          ask(s.opening);
+        } catch (e) { /* 이미 완료 등 */ }
+      });
+      sec.appendChild(card);
+    });
+  }).catch(() => {});
+  renderMissionBar();
+  // 이미 진행 중인 대화가 있으면(탭 전환 후 복귀) 대화 내용을 유지 렌더
+  if (chatLog.length) { document.querySelector("#emptyState").style.display = "none"; chatLog.forEach((node) => document.querySelector("#thread").appendChild(node)); scrollChatToEnd(); }
+}
+
+// 진행 중 미션 핀(입력창 위) — 몇 번 더 대화하면 얼마 받는지 항상 보이게.
+let activeMission = null;
+function renderMissionBar() {
+  const bar = document.querySelector("#missionBar"); if (!bar) return;
+  bar.innerHTML = "";
+  if (activeMission && activeMission.turns < activeMission.turnsRequired) {
+    bar.appendChild(el(`<div class="mission-bar">🎁 ${esc(activeMission.title)} ${activeMission.turns}/${activeMission.turnsRequired} · 완료하면 +${activeMission.reward}P</div>`));
+  }
+}
+
+// 탭 전환에도 대화가 유지되도록 렌더된 메시지 노드를 보관
+let chatLog = [];
+function scrollChatToEnd() {
+  const t = document.querySelector("#thread");
+  if (t && t.lastElementChild) setTimeout(() => t.lastElementChild.scrollIntoView({ behavior: "smooth", block: "end" }), 60);
+}
+
+async function ask(text) {
+  const input = document.querySelector("#q");
+  const q = (text ?? (input ? input.value : "")).trim(); if (!q) return;
+  const thread = document.querySelector("#thread");
+  if (input) input.value = "";
+  // 첫 메시지에서 홈(빈 상태) 숨기고 채팅 모드로 전환
+  const emptyState = document.querySelector("#emptyState");
+  if (emptyState) emptyState.style.display = "none";
+  // 사용자 말풍선을 먼저 아래에 붙이고 스크롤(채팅처럼 순서대로)
+  const userMsg = el(`<div class="msg-row"><div class="user-bubble">${esc(q)}</div></div>`);
+  thread.appendChild(userMsg); chatLog.push(userMsg);
+  const loading = el(`<div class="msg-row"><div class="card answer typing"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div></div>`);
+  thread.appendChild(loading);
+  scrollChatToEnd();
+  try {
+    if (!conversationId) conversationId = (await api("/v1/conversations", { method: "POST", body: "{}" })).conversation_id;
+    const r = await api(`/v1/conversations/${conversationId}/messages`, { method: "POST", body: JSON.stringify({ text: q }) });
+    loading.remove();
+    // 무료 대화 소진 → 답변 대신 '광고 보고 이어가기' 카드. 광고 후 방금 질문 자동 전송.
+    if (r.gated || !r.answer) {
+      const gate = gateCard(r.chat || {}, q);
+      thread.appendChild(gate); chatLog.push(gate);
+      scrollChatToEnd();
+      return;
+    }
+    // 미션 진행 갱신(완료면 핀 제거 — 축하 카드는 answerBlock에서)
+    if (r.mission) {
+      activeMission = r.mission.completed ? null : { title: r.mission.title, reward: r.mission.reward, turns: r.mission.turns, turnsRequired: r.mission.turnsRequired };
+      renderMissionBar();
+    }
+    const block = answerBlock(r);
+    thread.appendChild(block); chatLog.push(block);
+    scrollChatToEnd();
+  } catch (err) {
+    loading.remove();
+    const errNode = el(`<div class="msg-row"><div class="card answer"><div>${esc(err.title || "연결이 잠시 불안정해요.")}</div><button class="retry-btn mt">↻ 다시 시도</button></div></div>`);
+    errNode.querySelector(".retry-btn").addEventListener("click", () => { errNode.remove(); const idx = chatLog.indexOf(errNode); if (idx >= 0) chatLog.splice(idx, 1); ask(q); });
+    thread.appendChild(errNode); chatLog.push(errNode);
+    scrollChatToEnd();
+  }
+}
+
+// 대화 연장 광고 게이트 — 수익화 미션을 대화에 녹인 카드.
+function gateCard(chat, question) {
+  const reward = chat.adReward ?? 20, per = chat.perUnlock ?? 5;
+  const node = el(`
+    <div class="msg-row"><div class="card gate">
+      <div class="gate-title">무료 대화를 다 쓰셨어요</div>
+      <div class="gate-body">짧은 광고를 보면 대화 ${per}회를 더 할 수 있고, 포인트 ${reward}P도 함께 드려요.</div>
+      <button class="gate-btn">🎬 광고 보고 이어가기 (+${reward}P)</button>
+      <button class="gate-alt">또는 걸어서 포인트 모으기 ›</button>
+    </div></div>`);
+  const btn = node.querySelector(".gate-btn");
+  btn.addEventListener("click", async () => {
+    if (btn.disabled) return;
+    btn.disabled = true; btn.textContent = "광고 보는 중…";
+    try {
+      await new Promise((r) => setTimeout(r, 1400)); // 광고 재생 대체(실 SDK 연동 지점)
+      await api("/v1/chat/ad", { method: "POST", body: "{}" });
+      refreshWallet();
+      const idx = chatLog.indexOf(node); if (idx >= 0) chatLog.splice(idx, 1);
+      node.remove();
+      ask(question); // 방금 질문 자동 재전송
+    } catch (e) { btn.disabled = false; btn.textContent = `🎬 광고 보고 이어가기 (+${reward}P)`; }
+  });
+  node.querySelector(".gate-alt").addEventListener("click", () => document.querySelector(`#tabbar button[data-tab="walk"]`)?.click());
+  return node;
+}
+
+function answerBlock(r) {
+  const a = r.answer;
+  const sections = a.sections.map((s) => `<div class="section"><div class="h">${esc(s.title)}</div><div>${esc(s.body)}</div></div>`).join("");
+  const block = el(`
+    <div class="msg-row">
+      <div class="card answer">
+        <div class="ai-badge-row"><span class="ai-badge">AI</span><span class="muted" style="font-weight:700">AI 답변</span></div>
+        <div class="summary">${esc(a.summary)}</div>
+        ${sections}
+        ${a.uncertainty && a.uncertainty.message ? `<div class="uncertain-note">ⓘ ${esc(a.uncertainty.message)}</div>` : ""}
+      </div>
+      <div id="ad"></div>
+    </div>`);
+  const ad = block.querySelector("#ad");
+  if (r.safetyNotice) ad.appendChild(safetyCard(r.safetyNotice));
+  // 대화 미션 완료 축하 — 대화로 돈 벌었음을 즉시 체감시킨다.
+  if (r.mission && r.mission.completed) {
+    const cel = el(`<div class="mission-done">
+      <div class="md-title">🎉 미션 완료! +${r.mission.reward}P 적립</div>
+      <div class="md-sub">${esc(r.mission.sponsor)} · ${esc(r.mission.title)}</div>
+      <button class="md-btn">내 보상에서 확인 ›</button>
+    </div>`);
+    cel.querySelector(".md-btn").addEventListener("click", () => document.querySelector('#tabbar button[data-tab="reward"]')?.click());
+    ad.appendChild(cel);
+    refreshWallet();
+  }
+  const need = r.needLevel || (r.matched && r.matched.benefits && r.matched.benefits.length ? "ready" : "none");
+  const benefits = (r.matched && r.matched.benefits) || (r.commercial ? [r.commercial] : []);
+  const missions = (r.matched && r.matched.missions) || [];
+
+  if (need === "ready") {
+    benefits.forEach((o) => ad.appendChild(offerCard(o, r.answerSnapshotId)));
+    missions.forEach((o) => ad.appendChild(offerCard(o, r.answerSnapshotId)));
+  } else if (need === "exploring" && benefits.length) {
+    ad.appendChild(softSuggestion(benefits[0], r.answerSnapshotId));
+  }
+
+  if (r.rewardNudge) ad.appendChild(nudgeChip(r.rewardNudge));
+
+  if (need === "none" && !r.rewardNudge && !r.safetyNotice) {
+    ad.appendChild(el(`<div class="ai-note">지금은 안내에 집중했어요. 필요한 순간에만 혜택을 연결해 드려요.</div>`));
+  }
+
+  // 후속 질문 유도 — 탭하면 이어서 물어봄
+  if (Array.isArray(r.followUps) && r.followUps.length) {
+    const fw = el(`<div class="follow-wrap"><div class="follow-head">이어서 물어보기</div></div>`);
+    r.followUps.slice(0, 2).forEach((q) => {
+      const c = el(`<button class="follow-chip"><span>${esc(q)}</span><span class="fa">›</span></button>`);
+      c.addEventListener("click", () => ask(q));
+      fw.appendChild(c);
+    });
+    ad.appendChild(fw);
+  }
+  return block;
+}
+
+// 안전 안내 카드(사기·위기·건강·금융). 상담 번호는 tel: 링크.
+function safetyCard(n) {
+  const critical = n.level === "critical";
+  const res = (n.resources || []).map((r) => `<a class="res-btn" href="tel:${esc(r.value.replace(/[^0-9]/g, ""))}"><span class="rl">${esc(r.label)}</span><span class="rv">📞 ${esc(r.value)}</span></a>`).join("");
+  return el(`<div class="safety ${critical ? "critical" : "warn"}">
+    <div class="safety-title">${critical ? "🛑 " : "ℹ️ "}${esc(n.title)}</div>
+    <div class="safety-body">${esc(n.body)}</div>
+    ${res ? `<div class="safety-res">${res}</div>` : ""}
+  </div>`);
+}
+
+// exploring: 부드러운 제안 — 누르면 카드가 펼쳐진다(포인트 앞세움)
+function softSuggestion(o, answerSnapshotId) {
+  const wrap = el(`<div>
+    <button class="soft-sug">
+      <span class="e">💡</span>
+      <span class="tx"><span class="soft-h"><b>관련 혜택이 있어요</b><span class="soft-ad">광고·제휴</span></span><span class="sub">${esc(o.title)} · 확정 시 최대 ${won(o.expectedReward)}</span></span>
+      <span class="tg">보기</span>
+    </button>
+    <div class="soft-body" style="display:none"></div>
+  </div>`);
+  const btn = wrap.querySelector(".soft-sug"), body = wrap.querySelector(".soft-body"), tg = wrap.querySelector(".tg");
+  let open = false, built = false;
+  btn.addEventListener("click", () => {
+    open = !open;
+    if (open && !built) { body.appendChild(offerCard(o, answerSnapshotId)); built = true; }
+    body.style.display = open ? "block" : "none";
+    tg.textContent = open ? "접기" : "보기";
+  });
+  return wrap;
+}
+
+// 대화 맥락 리워드 넛지 — 걷기/미션 탭으로 연결
+function nudgeChip(kind) {
+  const walk = kind === "walk";
+  const c = el(`<button class="nudge-chip"><span class="e">${walk ? "👟" : "🎯"}</span><span class="tx">${walk ? "지금 걸으면 포인트가 쌓여요" : "짧은 미션으로 포인트 모으기"}</span><span class="go">바로가기 ›</span></button>`);
+  c.addEventListener("click", () => { const t = walk ? "walk" : "mission"; document.querySelector(`#tabbar button[data-tab="${t}"]`).click(); });
+  return c;
+}
+
+// ---------- 오퍼 카드 ----------
+function offerCard(o, answerSnapshotId) {
+  const rental = o.isRental;
+  const chips = [
+    o.autoRenewal
+      ? `<span class="chip warn">⚠︎ ${rental ? "자동결제·의무약정 " + o.mandatoryMonths + "개월" : "자동결제 있음"}</span>`
+      : `<span class="chip ok">✓ 자동결제 없음</span>`,
+    `<span class="chip ok">✓ ${rental ? "언제든 상담 취소 가능" : "취소·환불 가능"}</span>`,
+    o.dataSharing === "없음" ? `<span class="chip ok">✓ 연락처 미전달</span>` : `<span class="chip warn">⚠︎ 연락처 전달</span>`,
+  ].join("");
+  const inset = rental
+    ? `<div class="row"><span class="k">월 렌탈료</span><span class="v accent" style="font-size:1.3rem">${won(o.monthlyFee)}<span class="muted" style="font-size:.8rem;font-weight:600"> /월</span></span></div>
+       <div class="divider"></div>
+       <div class="row"><span class="k">약정 기간</span><span class="v">${o.contractMonths}개월</span></div>
+       <div class="row"><span class="k">의무 사용</span><span class="v">${o.mandatoryMonths}개월</span></div>
+       <div class="row"><span class="k">총 예상 비용</span><span class="v">${won(o.totalCost)}</span></div>
+       <div class="row"><span class="k">설치 확정 시 보상</span><span class="v accent">최대 ${won(o.expectedReward)}</span></div>`
+    : `<div class="row"><span class="k">총비용</span><span class="v" style="font-size:1.3rem">${won(o.totalCost)}</span></div>
+       <div class="divider"></div>
+       <div class="row"><span class="k">확정 시 최대 보상</span><span class="v accent">${won(o.expectedReward)}</span></div>
+       <div class="row"><span class="k">확정 시점</span><span class="v" style="font-weight:600">${esc(o.approvalWindow)}</span></div>`;
+  const c = el(`
+    <div class="card offer mt">
+      <div class="toprow"><span class="ad-label">광고·제휴</span><span class="advertiser">${esc(o.advertiserName)}</span><span class="cat-tag">${rental ? "렌탈 제휴" : o.category === "survey" ? "미션 제휴" : "쇼핑 제휴"}</span></div>
+      <h3>${rental ? "🚰 " : ""}${esc(o.title)}</h3>
+      <div class="muted" style="margin-bottom:8px">${esc(o.recommendationReason)}</div>
+      <div class="inset">${inset}</div>
+      <div class="chips">${chips}</div>
+      <button class="btn btn-primary mt">${rental ? "설치 상담 신청하기" : "제휴처에서 조건을 확인합니다"}</button>
+    </div>`);
+  c.querySelector("button").addEventListener("click", () => (rental ? openLeadForm(o) : goExternal(o, answerSnapshotId)));
+  return c;
+}
+
+// 렌탈 설치 상담 신청 폼(모달)
+function openLeadForm(o) {
+  const m = el(`<div class="modal-bg"><div class="lead-modal">
+    <h3 style="margin:0 0 4px">설치 상담 신청</h3>
+    <div class="muted" style="margin-bottom:14px">${esc(o.title)} · ${esc(o.advertiserName)}</div>
+    <label class="fl">이름</label><input id="ln" placeholder="성함" />
+    <label class="fl">연락처</label><input id="lp" placeholder="010-0000-0000" inputmode="tel" />
+    <label class="fl">설치 주소</label><input id="la" placeholder="설치할 주소" />
+    <label class="fl">희망 상담 시간 (선택)</label><input id="lt" placeholder="예: 평일 오후" />
+    <div class="lead-disclose">
+      <b>개인정보 제3자 제공 안내</b><br>
+      · 제공받는 자: ${esc(o.advertiserName)}<br>· 제공 항목: ${esc(o.dataSharing)}<br>· 목적: 렌탈 설치 상담·계약<br>
+      · 보유·이용기간: 상담 종료 후 파기<br>· 월 ${won(o.monthlyFee)} · 약정 ${o.contractMonths}개월 · 의무 ${o.mandatoryMonths}개월 · 자동결제 있음
+    </div>
+    <label class="lead-check"><input type="checkbox" id="lc" /> 위 개인정보 제3자 제공에 동의합니다 (필수)</label>
+    <button class="btn btn-primary" id="lsubmit">상담 신청하기</button>
+    <button class="btn" id="lcancel" style="width:100%;background:none;color:var(--muted)">닫기</button>
+  </div></div>`);
+  document.body.appendChild(m);
+  m.querySelector("#lcancel").addEventListener("click", () => m.remove());
+  m.querySelector("#lsubmit").addEventListener("click", async () => {
+    const name = m.querySelector("#ln").value.trim(), phone = m.querySelector("#lp").value.trim(), address = m.querySelector("#la").value.trim();
+    const time = m.querySelector("#lt").value.trim(), agree = m.querySelector("#lc").checked;
+    if (!name || !phone || !address) return toast("이름·연락처·설치 주소를 입력해주세요.");
+    if (!agree) return toast("개인정보 제3자 제공 동의가 필요해요.");
+    try {
+      await api("/v1/consents/third_party", { method: "PUT", body: JSON.stringify({ granted: true }) });
+      const r = await api(`/v1/offers/${o.offerSnapshotId}/lead`, { method: "POST", headers: { "Idempotency-Key": idem() }, body: JSON.stringify({ name, phone, address, preferred_time: time || undefined }) });
+      await api(`/v1/dev/simulate-conversion`, { method: "POST", body: JSON.stringify({ supplier: "sup_rental", source: "rental_cpa", click_id: r.click_id, gross_amount: o.totalCost || 0 }) }).catch(() => {});
+      m.remove();
+      toast(`상담 신청 완료 · ${o.advertiserName}에서 연락 예정`);
+      refreshWallet();
+    } catch (e) { toast(e.title || "신청 실패"); }
+  });
+}
+
+async function goExternal(o, answerSnapshotId) {
+  const warn = o.isRental ? `이 상품은 정기결제(자동결제)와 의무약정 ${o.mandatoryMonths}개월이 있어요.\n` : "";
+  if (!confirm(`제휴처(${o.advertiserName})로 이동합니다.\n${warn}· 개인정보 전달: ${o.dataSharing}\n· 비식별 클릭 ID만 전달됩니다.\n계속할까요?`)) return;
+  try {
+    await doClickAndConvert(o, answerSnapshotId);
+  } catch (err) {
+    // 제3자 제공 동의 필요(렌탈 리드 등) → 동의 후 재시도
+    if (err.code === "CONSENT_REQUIRED") {
+      if (confirm(`${err.detail || "개인정보 제3자 제공 동의가 필요합니다."}\n\n동의하고 계속할까요?`)) {
+        await api("/v1/consents/third_party", { method: "PUT", body: JSON.stringify({ granted: true }) });
+        try { await doClickAndConvert(o, answerSnapshotId); } catch (e) { toast(e.title || "진행 실패"); }
+      }
+      return;
+    }
+    toast(err.title || "이동 링크 생성 실패");
+  }
+}
+async function doClickAndConvert(o, answerSnapshotId) {
+  const r = await api(`/v1/offers/${o.offerSnapshotId}/clicks`, { method: "POST", headers: { "Idempotency-Key": idem() }, body: JSON.stringify({ answer_snapshot_id: answerSnapshotId || null }) });
+  await simulateConversion(o, r.click_id);
+}
+async function simulateConversion(o, clickId) {
+  const map = o.category === "survey" ? ["sup_offerwall", "offerwall_cpa"] : o.isRental ? ["sup_rental", "rental_cpa"] : ["sup_linkprice", "shopping_cps"];
+  // 데모: 서버의 dev 시뮬레이터를 통해 전환 생성(실 postback은 공급사 HMAC 서명 필요)
+  await api(`/v1/dev/simulate-conversion`, { method: "POST", body: JSON.stringify({ supplier: map[0], source: map[1], click_id: clickId, gross_amount: o.totalCost || 10000 }) });
+  toast(o.isRental ? "상담 접수됨 · 내 보상에서 확인 중 확인" : "전환 접수됨 · 내 보상에서 '확인 중'");
+  refreshWallet();
+}
+
+// ---------- 혜택(쇼핑/렌탈) & 미션 ----------
+async function renderShop() {
+  await renderOfferList([{ k: "shopping", l: "쇼핑·예약" }, { k: "rental", l: "렌탈" }], "혜택", "검수된 제휴 상품이에요. 총비용과 조건을 꼭 확인하세요.");
+}
+async function renderMission() {
+  await renderOfferList([{ k: "mission", l: "미션" }], "미션", "설문·가입 등 행동을 완료하면 보상을 받아요. 소요시간과 개인정보 전달을 먼저 확인하세요.");
+}
+async function renderOfferList(segs, title, sub, seg) {
+  const cur = seg || segs[0].k;
+  const v = document.querySelector("#view");
+  v.innerHTML = `<h2 class="title">${title}</h2><p class="sub">${sub}</p>`;
+  if (segs.length > 1) {
+    const bar = el(`<div class="segbar"></div>`);
+    segs.forEach((s) => { const b = el(`<button class="seg ${s.k === cur ? "active" : ""}">${s.l}</button>`); b.addEventListener("click", () => renderOfferList(segs, title, sub, s.k)); bar.appendChild(b); });
+    v.appendChild(bar);
+  }
+  if (cur === "rental") v.appendChild(el(`<div class="notice">렌탈은 매달 요금이 나가는 정기결제 상품이에요. 월 요금·약정·의무기간을 꼭 확인하세요.</div>`));
+  const list = el(`<div id="list" class="muted">불러오는 중…</div>`); v.appendChild(list);
+  try {
+    const { offers } = await api(`/v1/offers?type=${cur}`);
+    list.innerHTML = ""; list.classList.remove("muted");
+    if (!offers.length) { list.textContent = "지금은 조건을 만족하는 혜택이 없어요."; list.classList.add("muted"); return; }
+    // 쇼핑은 토스쇼핑식 상품 행(탭하면 상세 카드 펼침), 렌탈·미션은 조건 고지가 중요해 상세 카드 그대로.
+    if (cur === "shopping") offers.forEach((o) => list.appendChild(productRow(o)));
+    else offers.forEach((o) => list.appendChild(offerCard(o, null)));
+  } catch { list.textContent = "불러오지 못했어요."; }
+}
+
+// 토스쇼핑식 상품 행 — [썸네일] [상품명·판매처] [가격 + 적립] › . 탭하면 상세 카드 펼침.
+const PRODUCT_EMOJI = [
+  [/홍삼|인삼|영양|비타민/, "🫖"], [/무릎|보호대|찜질/, "🦵"], [/워킹화|운동화|신발/, "👟"],
+  [/베개|이불|침구|매트/, "🛏️"], [/필터|청정기/, "🌬️"], [/호텔|숙박/, "🏨"], [/항공|비행/, "✈️"],
+];
+function productEmoji(title) { for (const [re, e] of PRODUCT_EMOJI) if (re.test(title)) return e; return "🛍️"; }
+function productRow(o) {
+  const wrap = el(`<div></div>`);
+  // 토스쇼핑 문법: 가격은 상품명 '아래'(오른쪽 열 아님) — 상품명이 꺾이지 않는다.
+  const row = el(`<button class="p-row">
+    <span class="p-thumb">${productEmoji(o.title)}</span>
+    <span class="p-body">
+      <span class="p-name">${esc(o.title)}</span>
+      <span class="p-price">${won(o.totalCost)}</span>
+      <span class="p-meta"><span class="p-cash">최대 ${won(o.expectedReward)} 적립</span><span class="m-ad">광고·제휴</span>${esc(o.advertiserName)}</span>
+    </span>
+    <span class="p-arrow">›</span>
+  </button>`);
+  let open = false, detail = null;
+  row.addEventListener("click", () => {
+    open = !open;
+    if (open) { detail = offerCard(o, null); wrap.appendChild(detail); }
+    else if (detail) { detail.remove(); detail = null; }
+  });
+  wrap.appendChild(row);
+  return wrap;
+}
+
+// ---------- 걷기 ----------
+async function renderWalk() {
+  const v = document.querySelector("#view");
+  v.innerHTML = `<h2 class="title">걷기</h2><p class="sub">걸을수록 마일스톤이 열려요. 광고를 보면 보상을 받습니다.</p><div id="walk" class="muted">불러오는 중…</div>`;
+  drawWalk(await api("/v1/cashwalk"));
+}
+function drawWalk(s) {
+  const w = document.querySelector("#walk"); w.classList.remove("muted");
+  const pct = Math.min(100, (s.steps / s.dailyCap) * 100);
+  const msHtml = Array.from({ length: Math.floor(s.dailyCap / s.stepPerMilestone) }, (_, i) => {
+    const m = i + 1;
+    const cls = s.claimedMilestones.includes(m) ? "done" : s.claimable.includes(m) ? "claimable" : "locked";
+    return `<button class="ms ${cls}" data-m="${m}" ${cls === "claimable" ? "" : "disabled"}>${m}</button>`;
+  }).join("");
+  w.innerHTML = `
+    <div class="card">
+      <div class="steps-big">${s.steps.toLocaleString("ko-KR")}</div>
+      <div class="center muted">오늘 걸음 (상한 ${s.dailyCap.toLocaleString("ko-KR")}보)</div>
+      <div class="progress"><i style="width:${pct}%"></i></div>
+      <div class="row"><span class="k">오늘 받은 보상</span><span class="v" style="color:var(--brand)">${won(s.earnedToday)}</span></div>
+      <div class="row"><span class="k">마일스톤당 보상</span><span class="v">${won(s.rewardPerMilestone)} (${s.stepPerMilestone.toLocaleString("ko-KR")}보마다)</span></div>
+      <button class="btn btn-ghost mt" id="add" style="width:100%">+1,000보 (데모 걷기)</button>
+    </div>
+    <div class="card">
+      <h3>마일스톤</h3><p class="muted" style="margin-top:0">주황색은 광고 보고 받기 가능, 초록색은 받음.</p>
+      <div class="milestones">${msHtml}</div>
+      <div class="disclose">보상 재원은 잠금화면·리워드 광고입니다. 걸음 자체가 아니라 '광고 시청'에 대해 지급돼요.</div>
+    </div>`;
+  w.querySelector("#add").addEventListener("click", async () => drawWalk(await api("/v1/cashwalk/steps", { method: "POST", body: JSON.stringify({ steps: s.steps + 1000, device_integrity_ok: true }) })));
+  w.querySelectorAll(".ms.claimable").forEach((b) => b.addEventListener("click", () => {
+    toast("광고 시청 중…(데모 2초)");
+    setTimeout(async () => {
+      try { await api("/v1/cashwalk/claims", { method: "POST", body: JSON.stringify({ milestone: Number(b.dataset.m), ad_impression_id: "imp_" + idem() }) }); toast("보상 지급! 내 보상에서 확인"); drawWalk(await api("/v1/cashwalk")); refreshWallet(); }
+      catch (e) { toast(e.title || "청구 실패"); }
+    }, 2000);
+  }));
+}
+
+// ---------- 내 보상 ----------
+async function renderReward() {
+  const v = document.querySelector("#view");
+  const w = await refreshWallet();
+  const { rewards } = await api("/v1/rewards");
+  v.innerHTML = `<h2 class="title">내 보상</h2>`;
+  v.appendChild(el(`
+    <div class="card">
+      <div class="center"><div class="muted" style="font-weight:700">사용 가능</div><div class="big-amount" style="color:var(--brand)">${won(w.available)}</div></div>
+      <div class="row mt"><span class="pill pending">확인 중</span><span class="v">${won(w.pending)}</span></div>
+      <div class="row"><span class="pill paid">사용 완료</span><span class="v">${won(w.used)}</span></div>
+      <button class="btn btn-primary mt" id="exchange" ${w.available < 3000 ? "disabled" : ""}>3,000원 쿠폰으로 교환하기</button>
+      <div class="disclose">확인 중 금액은 아직 사용할 수 없어요. 광고주 확인이 끝나면 '사용 가능'으로 바뀝니다.</div>
+    </div>`));
+  const list = el(`<div><h3 class="title" style="font-size:1.2rem">거래 내역</h3></div>`);
+  if (!rewards.length) list.appendChild(el(`<div class="card muted">아직 거래가 없어요. AI 도움·혜택·미션·걷기로 보상을 모아보세요.</div>`));
+  rewards.forEach((r) => {
+    const cls = r.state === "available" ? "available" : r.state === "reversed" ? "reversed" : r.state === "paid" ? "paid" : "pending";
+    const card = el(`<div class="card">
+        <div class="row"><span style="font-weight:800">${esc(r.title)}</span><span class="pill ${cls}">${r.state_label}</span></div>
+        <div class="row"><span class="k">${sourceLabel(r.source) === r.title ? "" : esc(sourceLabel(r.source))}</span><span class="v">${won(r.amount)}</span></div>
+        <button class="btn btn-ghost" data-id="${r.reward_transaction_id}" style="width:100%">진행 상태 보기</button>
+      </div>`);
+    card.querySelector("button").addEventListener("click", () => showTimeline(r.reward_transaction_id));
+    list.appendChild(card);
+  });
+  v.appendChild(list);
+  v.querySelector("#exchange")?.addEventListener("click", () => exchange(w.available));
+}
+async function showTimeline(rid) {
+  const r = await api(`/v1/rewards/${rid}`);
+  alert(`${r.title}\n상태: ${r.state_label} · ${won(r.amount)}\n\n[타임라인]\n` + r.timeline.map((t) => `• ${t.reason} (${new Date(t.created_at).toLocaleString("ko-KR")})`).join("\n"));
+}
+async function exchange(available) {
+  // 상품 카탈로그가 3,000원 쿠폰 1종 → 상품과 금액 일치.
+  const amount = 3000;
+  if (available < amount) return toast("3,000원 쿠폰 교환에는 최소 3,000원이 필요해요.");
+  if (!confirm(`${won(amount)}을 모바일 쿠폰으로 교환할까요?`)) return;
+  try {
+    const r = await api("/v1/payouts", { method: "POST", headers: { "Idempotency-Key": idem() }, body: JSON.stringify({ amount, product_id: "coupon_3000" }) });
+    if (r.status === "paid") toast(`교환 완료! 쿠폰번호 ${r.coupon_code}`);
+    else if (r.status === "unknown") toast("확인 중이에요. 잔액은 보호됩니다.");
+    else toast("교환 실패 · 잔액이 복구됐어요.");
+    renderReward();
+  } catch (e) { toast(e.title || "교환 실패"); }
+}
+
+function sourceLabel(s) { return ({ shopping_cps: "쇼핑 적립", offerwall_cpa: "미션 보상", cashwalk_ad: "걷기 보상", rental_cpa: "렌탈 보상", chat_ad: "대화 연장 보상", sponsor_chat: "대화 미션 보상" })[s] || s; }
+
+// ---------- 온보딩(첫 실행) ----------
+const ONB_STEPS = [
+  { emoji: "💬", title: "무엇이든 편하게<br>물어보세요", body: "생활비, 여행, 쇼핑, 렌탈까지. 궁금한 걸 말하듯 물어보면 핵심부터 쉽게 정리해 드려요.", point: "답변은 광고와 상관없이 완결돼요." },
+  { emoji: "🎁", title: "필요할 때만<br>혜택을 연결해요", body: "대화 속에 필요가 보일 때만 관련 혜택·미션을 보여드려요. 원치 않으면 안 봐도 됩니다. 광고는 늘 ‘광고·제휴’로 표시돼요.", point: "필요 없으면 답변만 받아도 괜찮아요." },
+  { emoji: "👛", title: "걷고 참여하면<br>포인트가 쌓여요", body: "걷기·간단한 미션·혜택 참여로 포인트를 모아 모바일 쿠폰으로 바꿔요. 비용은 광고주가 부담하고, 위치 정보는 수집하지 않아요.", point: "내 이름·번호는 동의한 경우에만 전달돼요." },
+];
+function showOnboarding() {
+  let i = 0;
+  const ov = el(`<div class="onb"></div>`);
+  function draw() {
+    const st = ONB_STEPS[i], last = i === ONB_STEPS.length - 1;
+    ov.innerHTML = `
+      <button class="onb-skip">건너뛰기</button>
+      <div class="onb-body">
+        <div class="onb-emoji">${st.emoji}</div>
+        <div class="onb-title">${st.title}</div>
+        <div class="onb-desc">${esc(st.body)}</div>
+        <div class="onb-point">✓ ${esc(st.point)}</div>
+      </div>
+      <div class="onb-dots">${ONB_STEPS.map((_, k) => `<span class="${k === i ? "on" : ""}"></span>`).join("")}</div>
+      <button class="onb-cta">${last ? "시작하기" : "다음"}</button>`;
+    ov.querySelector(".onb-skip").addEventListener("click", done);
+    ov.querySelector(".onb-cta").addEventListener("click", () => { if (last) done(); else { i++; draw(); } });
+  }
+  function done() { __store.setItem("hyeaek_onboarded", "1"); ov.remove(); }
+  draw();
+  document.body.appendChild(ov);
+}
+
+// ---------- 설정 ----------
+const FAQ_ITEMS = [
+  { q: "포인트는 어떻게 받나요?", a: "걷기, 간단한 미션, 혜택 참여로 포인트가 쌓여요. ‘내 보상’에서 확인하고 3,000원부터 모바일 쿠폰으로 바꿀 수 있어요." },
+  { q: "‘확인 중’은 무슨 뜻인가요?", a: "적립이 제휴사 확인을 기다리는 상태예요. 보통 며칠 안에 ‘사용 가능’으로 바뀌고, 취소·반품되면 회수될 수 있어요." },
+  { q: "정말 안전한가요? 비용이 드나요?", a: "이용료는 없어요. 비용은 광고주가 부담합니다. 위치 정보는 수집하지 않고, 이름·연락처는 상담을 신청하고 동의했을 때만 전달돼요." },
+  { q: "광고를 꼭 봐야 하나요?", a: "아니요. 답변은 광고와 무관하게 완결돼요. 필요할 때만 ‘광고·제휴’ 표시와 함께 혜택을 보여드려요." },
+  { q: "쿠폰은 어떻게 쓰나요?", a: "‘내 보상’에서 교환하면 쿠폰번호가 나와요. 편의점·온라인에서 사용할 수 있어요." },
+];
+const OPTIONAL_CONSENTS = [
+  { purpose: "location", title: "위치(동네) 사용", desc: "동네 날씨 등 '오늘의 이야기'를 더 맞춤으로 건네드려요. 정밀 위치가 아니라 동네만 사용해요." },
+  { purpose: "third_party", title: "개인정보 제3자 제공", desc: "렌탈 등 상담 신청 시 이름·연락처·주소를 제휴사에 전달합니다. 끄면 상담 신청이 제한됩니다." },
+  { purpose: "personalized_ads", title: "맞춤 혜택 추천", desc: "대화 맥락에 맞는 혜택·미션을 추천받습니다. 끄면 일반 안내만 제공됩니다." },
+  { purpose: "marketing", title: "혜택·이벤트 알림", desc: "새로운 혜택·이벤트 소식을 받습니다." },
+];
+const DOC_TERMS = "제1조(목적) 본 약관은 혜택AI(이하 \"서비스\")의 이용 조건과 절차를 규정합니다.\n제2조(서비스) AI 대화 안내와 함께, 필요가 있을 때 검수된 제휴 혜택·미션·렌탈·걷기 리워드를 연결합니다. 답변은 광고와 무관하게 완결됩니다.\n제3조(리워드) 적립 보상은 제휴사의 유효 전환 확인 후 '사용 가능'으로 확정되며, 취소·반품 시 회수될 수 있습니다.\n제4조(유의) 가격·조건 등 변동 정보는 진행 전 원문에서 다시 확인해야 합니다.\n※ 본 문안은 데모용 예시이며, 실제 출시 전 법률 검토를 거쳐 확정됩니다.";
+const DOC_PRIVACY = "1. 수집 항목: 기기 식별자, 대화 내용, 걸음수(위치 미수집). 상담 신청 시에만 이름·연락처·주소를 수집합니다.\n2. 이용 목적: 서비스 제공, 리워드 정산, 맞춤 혜택 추천(동의 시).\n3. 보관·파기: 상담 정보는 상담 종료 후 파기하며, 연락처·주소는 암호화 저장합니다.\n4. 이용자 권리: 동의는 설정에서 언제든 철회할 수 있고, 열람·삭제를 요청할 수 있습니다.\n5. 제3자 제공: 이용자가 신청한 경우에 한해 동의한 항목만 해당 제휴사에 제공합니다.\n※ 본 문안은 데모용 예시이며, 실제 출시 전 개인정보 영향평가·법률 검토를 거쳐 확정됩니다.";
+
+async function renderSettings() {
+  const v = document.querySelector("#view");
+  v.innerHTML = `<h2 class="title">설정</h2>`;
+  let granted = {};
+  try { const r = await api("/v1/consents"); r.consents.forEach((c) => { granted[c.purpose] = !!c.granted; }); } catch { /* noop */ }
+
+  v.appendChild(el(`<div class="set-sec">개인정보·동의 관리</div>`));
+  const card = el(`<div class="card set-card"></div>`);
+  OPTIONAL_CONSENTS.forEach((c, i) => {
+    const row = el(`<div class="set-consent${i < OPTIONAL_CONSENTS.length - 1 ? " rdiv" : ""}">
+      <div class="tx"><div class="ct">${esc(c.title)}</div><div class="cd">${esc(c.desc)}</div></div>
+      <button class="toggle ${granted[c.purpose] ? "on" : ""}" role="switch" aria-checked="${!!granted[c.purpose]}"><span class="knob"></span></button>
+    </div>`);
+    const btn = row.querySelector(".toggle");
+    btn.addEventListener("click", async () => {
+      const next = !btn.classList.contains("on");
+      btn.classList.toggle("on", next); btn.setAttribute("aria-checked", String(next));
+      try { await api(`/v1/consents/${c.purpose}`, { method: "PUT", body: JSON.stringify({ granted: next }) }); }
+      catch { btn.classList.toggle("on", !next); toast("잠시 후 다시 시도해주세요."); }
+    });
+    card.appendChild(row);
+  });
+  v.appendChild(card);
+  v.appendChild(el(`<div class="sub" style="margin-top:8px">동의는 언제든 켜고 끌 수 있어요. 끄면 즉시 반영됩니다.</div>`));
+
+  // 동네(위치) 설정 — 오늘의 이야기 날씨 맥락.
+  let me = {};
+  try { me = await api("/v1/me"); } catch { /* noop */ }
+  v.appendChild(el(`<div class="set-sec">내 동네</div>`));
+  const regionCard = el(`<div class="card set-card">
+    <div class="set-consent"><div class="tx"><div class="ct">동네 설정</div><div class="cd">날씨 등 오늘의 이야기를 동네에 맞춰 드려요.</div></div></div>
+    <div style="display:flex;gap:8px;padding:0 0 14px"><input id="regionInput" placeholder="예: 서울 마포구" value="${esc(me.region || "")}" style="flex:1;font:inherit;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--ink)"/><button class="btn" id="regionSave" style="width:auto;min-height:auto;padding:10px 16px;background:var(--brand);color:#fff">저장</button></div>
+  </div>`);
+  regionCard.querySelector("#regionSave").addEventListener("click", async () => {
+    try { await api("/v1/me/region", { method: "PUT", body: JSON.stringify({ region: regionCard.querySelector("#regionInput").value.trim() || null }) }); toast("동네 저장됨"); }
+    catch { toast("저장 실패"); }
+  });
+  v.appendChild(regionCard);
+
+  v.appendChild(el(`<div class="set-sec">도움말 · 자주 묻는 질문</div>`));
+  const faq = el(`<div class="card set-card"></div>`);
+  FAQ_ITEMS.forEach((f, i) => {
+    const row = el(`<div class="${i < FAQ_ITEMS.length - 1 ? "rdiv" : ""}">
+      <button class="faq-q"><span>${esc(f.q)}</span><span class="chev">›</span></button>
+      <div class="faq-a" style="display:none">${esc(f.a)}</div>
+    </div>`);
+    const q = row.querySelector(".faq-q"), a = row.querySelector(".faq-a"), chev = row.querySelector(".chev");
+    q.addEventListener("click", () => { const open = a.style.display === "none"; a.style.display = open ? "block" : "none"; chev.textContent = open ? "∨" : "›"; });
+    faq.appendChild(row);
+  });
+  v.appendChild(faq);
+  const replay = el(`<button class="set-replay">📖 앱 소개 다시 보기</button>`);
+  replay.addEventListener("click", showOnboarding);
+  v.appendChild(replay);
+
+  v.appendChild(el(`<div class="set-sec">약관·정책</div>`));
+  const docs = el(`<div class="card set-card">
+    <button class="set-link rdiv" id="t-terms">이용약관 <span class="chev">›</span></button>
+    <button class="set-link" id="t-privacy">개인정보처리방침 <span class="chev">›</span></button>
+  </div>`);
+  docs.querySelector("#t-terms").addEventListener("click", () => openDoc("이용약관", DOC_TERMS));
+  docs.querySelector("#t-privacy").addEventListener("click", () => openDoc("개인정보처리방침", DOC_PRIVACY));
+  v.appendChild(docs);
+
+  v.appendChild(el(`<div class="set-sec">계정</div>`));
+  const acct = el(`<div class="card set-card"><button class="set-link danger" id="logout">로그아웃 <span class="chev">›</span></button></div>`);
+  acct.querySelector("#logout").addEventListener("click", () => {
+    if (!confirm("로그아웃하면 이 기기의 게스트 세션이 초기화돼요. 계속할까요?")) return;
+    TOKEN = ""; __store.removeItem("hyeaek_token"); __store.removeItem("hyeaek_device");
+    toast("로그아웃했어요. 새 세션으로 다시 시작합니다.");
+    ensureSession().then(render).catch(() => render());
+  });
+  v.appendChild(acct);
+  v.appendChild(el(`<div class="app-info">혜택AI · 버전 0.1.0</div>`));
+}
+
+function openDoc(title, body) {
+  const m = el(`<div class="modal-bg"><div class="lead-modal"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><h3 style="margin:0">${esc(title)}</h3><button class="btn" id="dc" style="width:auto;min-height:auto;background:none;color:var(--brand);padding:6px 10px">닫기</button></div><div style="max-height:56vh;overflow:auto;white-space:pre-line;line-height:1.7;font-size:.95rem">${esc(body)}</div></div></div>`);
+  document.body.appendChild(m);
+  m.querySelector("#dc").addEventListener("click", () => m.remove());
+  m.addEventListener("click", (e) => { if (e.target === m) m.remove(); });
+}
+
+// 세션 보장 후 첫 렌더
+ensureSession().then(render).catch(() => render());
+// 첫 실행 온보딩(1회)
+if (!__store.getItem("hyeaek_onboarded")) showOnboarding();
+
+</script>
+</body></html>
