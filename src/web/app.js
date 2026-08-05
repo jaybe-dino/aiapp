@@ -40,6 +40,12 @@ async function refreshWallet() {
   } catch { return { available: 0, pending: 0, used: 0 }; }
 }
 
+// 상단 지갑 탭 → 내 보상으로 이동(토스처럼 금액이 곧 버튼)
+document.querySelector("#walletMini").style.cursor = "pointer";
+document.querySelector("#walletMini").addEventListener("click", () => {
+  document.querySelector('#tabbar button[data-tab="reward"]')?.click();
+});
+
 document.querySelector("#tabbar").addEventListener("click", (e) => {
   const b = e.target.closest("button[data-tab]"); if (!b) return;
   document.querySelectorAll("#tabbar button").forEach((x) => x.classList.toggle("active", x === b));
